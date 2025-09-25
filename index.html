@@ -1,1 +1,1857 @@
 
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Plano de Treino Interativo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Chosen Palette: Warm Neutrals -->
+    <!-- Application Structure Plan: The SPA uses a tab-based navigation ('Visão Geral', workout days, 'Dieta', 'Treino Rápido', 'Metas', 'Mobilidade', 'Relaxamento', 'Tire suas Dúvidas') to break down the fitness plan into logical sections. This task-oriented design allows users to access information easily. New features like AI Recipe Creator and Guided Meditation enhance nutrition and wellness aspects. -->
+    <!-- Visualization & Content Choices:
+    - Weekly Schedule: (Report Info: 3-day split) -> (Goal: Inform) -> (Viz: HTML/CSS Grid) -> (Interaction: None) -> (Justification: Simple, clear visual.) -> (Library/Method: Tailwind CSS).
+    - Muscle Group Focus: (Report Info: All exercises) -> (Goal: Inform/Analyze) -> (Viz: Doughnut Chart) -> (Interaction: Hover) -> (Justification: Quick overview of plan balance.) -> (Library/Method: Chart.js/Canvas).
+    - Exercise Details: (Report Info: Exercise name) -> (Goal: Organize/Inform) -> (Viz: Interactive Cards) -> (Interaction: Click to expand/trigger AI) -> (Justification: Progressive disclosure of information.) -> (Library/Method: Vanilla JS).
+    - AI Tools (All features): (User Input: Goals, constraints, questions, ingredients) -> (Goal: Personalize/Inform) -> (Viz: Form/Input + Dynamic Text/Audio) -> (Interaction: User input triggers API call) -> (Justification: High-value, personalized content on demand.) -> (Library/Method: Gemini API). -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #FDFBF8;
+            color: #4A4A4A;
+        }
+        .nav-btn {
+            transition: all 0.3s ease;
+        }
+        .nav-btn.active {
+            background-color: #E0A458;
+            color: #FFFFFF;
+            font-weight: 600;
+        }
+        .card-enter {
+            animation: card-enter 0.5s ease-out forwards;
+        }
+        @keyframes card-enter {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        .spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            border-left-color: #E0A458;
+            animation: spin 1s ease infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .tts-button {
+            cursor: pointer;
+            user-select: none;
+        }
+    </style>
+</head>
+<body class="antialiased">
+
+    <div class="container mx-auto p-4 md:p-8 max-w-7xl">
+        <header class="text-center mb-8">
+            <div class="w-20 h-20 mx-auto mb-4 bg-orange-100 rounded-full flex items-center justify-center border-4 border-white shadow-sm">
+                <div class="flex items-center justify-center">
+                    <div class="w-5 h-5 bg-[#D38B34] rounded-full"></div>
+                    <div class="w-8 h-2 bg-gray-400 -mx-1"></div>
+                    <div class="w-5 h-5 bg-[#D38B34] rounded-full"></div>
+                </div>
+            </div>
+            <h1 class="text-4xl md:text-5xl font-bold text-[#D38B34]">Plano de Treino Interativo</h1>
+            <p class="text-lg text-gray-600 mt-2">Seu guia semanal para crescimento muscular e manutenção.</p>
+        </header>
+
+        <div id="user-data-header" class="hidden bg-white p-4 rounded-xl shadow-md mb-8 card-enter">
+            <div class="flex flex-wrap justify-between items-center gap-x-6 gap-y-4">
+                <div class="flex-grow">
+                    <p class="text-sm text-gray-500">Nome</p>
+                    <p id="display-name" class="font-bold text-lg text-gray-800"></p>
+                </div>
+                <div>
+                    <p class="text-sm text-gray-500">Idade</p>
+                    <p id="display-age" class="font-bold text-lg text-gray-800"></p>
+                </div>
+                <div>
+                    <p class="text-sm text-gray-500">Sexo</p>
+                    <p id="display-gender" class="font-bold text-lg text-gray-800"></p>
+                </div>
+                <div class="flex-grow">
+                    <p class="text-sm text-gray-500">E-mail</p>
+                    <p id="display-email" class="font-bold text-lg text-gray-800"></p>
+                </div>
+                <button id="edit-user-data" class="text-sm bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-2 px-4 rounded-lg transition">Editar</button>
+            </div>
+        </div>
+
+        <div id="user-form-section" class="hidden bg-white p-6 rounded-xl shadow-md card-enter mb-8">
+            <h2 class="text-2xl font-bold text-[#E0A458] mb-4">Suas Informações</h2>
+            <p class="mb-6 text-gray-700">Preencha seus dados para personalizar a experiência. As informações ficarão salvas no seu navegador.</p>
+            <form id="user-form" class="space-y-4">
+                <div>
+                    <label for="full-name" class="block text-sm font-medium text-gray-700">Nome Completo</label>
+                    <input type="text" id="full-name" name="full-name" required class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-orange-500 focus:border-orange-500 sm:text-sm">
+                </div>
+                <div>
+                    <label for="age" class="block text-sm font-medium text-gray-700">Idade</label>
+                    <input type="number" id="age" name="age" required class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-orange-500 focus:border-orange-500 sm:text-sm">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Sexo</label>
+                    <div class="mt-2 flex items-center space-x-4">
+                        <label class="inline-flex items-center">
+                            <input type="radio" name="gender" value="Masculino" required class="text-orange-600 focus:ring-orange-500">
+                            <span class="ml-2">Masculino</span>
+                        </label>
+                         <label class="inline-flex items-center">
+                            <input type="radio" name="gender" value="Feminino" class="text-orange-600 focus:ring-orange-500">
+                            <span class="ml-2">Feminino</span>
+                        </label>
+                         <label class="inline-flex items-center">
+                            <input type="radio" name="gender" value="Outro" class="text-orange-600 focus:ring-orange-500">
+                            <span class="ml-2">Outro</span>
+                        </label>
+                    </div>
+                </div>
+                <div>
+                    <label for="email" class="block text-sm font-medium text-gray-700">E-mail</label>
+                    <input type="email" id="email" name="email" required class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-orange-500 focus:border-orange-500 sm:text-sm">
+                </div>
+                <button type="submit" class="w-full bg-[#E0A458] text-white font-bold py-2 px-4 rounded-lg hover:bg-[#d38b34] transition duration-300">
+                    Salvar e Iniciar
+                </button>
+            </form>
+        </div>
+        
+        <div id="main-content" class="hidden">
+            <nav class="flex flex-wrap justify-center gap-2 md:gap-4 mb-8">
+                <button data-target="overview" class="nav-btn active px-4 py-2 rounded-lg bg-white shadow-sm hover:bg-gray-100">Visão Geral</button>
+                <button data-target="day1" class="nav-btn px-4 py-2 rounded-lg bg-white shadow-sm hover:bg-gray-100">Dia 1: Superior</button>
+                <button data-target="day2" class="nav-btn px-4 py-2 rounded-lg bg-white shadow-sm hover:bg-gray-100">Dia 2: Cardio</button>
+                <button data-target="day3" class="nav-btn px-4 py-2 rounded-lg bg-white shadow-sm hover:bg-gray-100">Dia 3: Inferior</button>
+                <button data-target="diet" class="nav-btn px-4 py-2 rounded-lg bg-white shadow-sm hover:bg-gray-100">Dieta</button>
+                <button data-target="quick-workout" class="nav-btn px-4 py-2 rounded-lg bg-white shadow-sm hover:bg-gray-100">Treino Rápido</button>
+                <button data-target="mobility" class="nav-btn px-4 py-2 rounded-lg bg-white shadow-sm hover:bg-gray-100">Mobilidade</button>
+                <button data-target="goals" class="nav-btn px-4 py-2 rounded-lg bg-white shadow-sm hover:bg-gray-100">Metas</button>
+                <button data-target="relaxation" class="nav-btn px-4 py-2 rounded-lg bg-white shadow-sm hover:bg-gray-100">Relaxamento</button>
+                <button data-target="chat" class="nav-btn px-4 py-2 rounded-lg bg-white shadow-sm hover:bg-gray-100">Tire suas Dúvidas</button>
+            </nav>
+
+            <main>
+                <section id="overview" class="page space-y-8">
+                    <div class="bg-white p-6 rounded-xl shadow-md card-enter">
+                        <h2 class="text-2xl font-bold text-[#E0A458] mb-4">Estrutura da Semana</h2>
+                        <p class="mb-6 text-gray-700">Este plano é estruturado em 3 dias de treino, permitindo recuperação adequada e foco em diferentes grupos musculares. Organize os dias de treino e descanso como preferir, mas evite treinar musculação em dias consecutivos para otimizar a recuperação muscular.</p>
+                        <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4 text-center">
+                            <div class="p-4 rounded-lg bg-orange-100 border border-orange-200">
+                                <p class="font-semibold">Dia 1</p>
+                                <p class="text-sm text-orange-800">Superior</p>
+                            </div>
+                            <div class="p-4 rounded-lg bg-gray-100 border border-gray-200">
+                                <p class="font-semibold">Dia 2</p>
+                                <p class="text-sm text-gray-600">Descanso</p>
+                            </div>
+                            <div class="p-4 rounded-lg bg-teal-100 border border-teal-200">
+                                <p class="font-semibold">Dia 3</p>
+                                <p class="text-sm text-teal-800">Cardio</p>
+                            </div>
+                            <div class="p-4 rounded-lg bg-gray-100 border border-gray-200">
+                                <p class="font-semibold">Dia 4</p>
+                                <p class="text-sm text-gray-600">Descanso</p>
+                            </div>
+                            <div class="p-4 rounded-lg bg-blue-100 border border-blue-200">
+                                <p class="font-semibold">Dia 5</p>
+                                <p class="text-sm text-blue-800">Inferior</p>
+                            </div>
+                            <div class="p-4 rounded-lg bg-gray-100 border border-gray-200">
+                                <p class="font-semibold">Dia 6</p>
+                                <p class="text-sm text-gray-600">Descanso</p>
+                            </div>
+                            <div class="p-4 rounded-lg bg-gray-100 border border-gray-200">
+                                <p class="font-semibold">Dia 7</p>
+                                <p class="text-sm text-gray-600">Descanso</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="grid md:grid-cols-2 gap-8">
+                        <div class="bg-white p-6 rounded-xl shadow-md card-enter">
+                            <h2 class="text-2xl font-bold text-[#E0A458] mb-4">Foco Muscular do Plano</h2>
+                            <p class="mb-4 text-gray-700">O gráfico abaixo mostra a distribuição de exercícios por grupo muscular nos seus treinos de musculação. Isso ajuda a visualizar o equilíbrio entre os diferentes músculos trabalhados.</p>
+                            <div class="chart-container relative w-full max-w-sm mx-auto h-64 md:h-72">
+                                <canvas id="muscleFocusChart"></canvas>
+                            </div>
+                        </div>
+                        <div class="bg-white p-6 rounded-xl shadow-md card-enter flex flex-col">
+                            <h2 class="text-2xl font-bold text-[#E0A458] mb-4 flex items-center">
+                                Dica do Dia com IA
+                                <button data-target-text="#ai-tip-container p" class="tts-button hidden text-xl ml-4 text-gray-400 hover:text-orange-500">🔊</button>
+                            </h2>
+                            <div id="ai-tip-container" class="text-gray-700 bg-orange-50 p-4 rounded-lg flex-grow min-h-[150px] flex items-center justify-center">
+                                <p>Clique no botão abaixo para gerar uma dica de treino personalizada!</p>
+                            </div>
+                            <div id="ai-tip-loader" class="hidden min-h-[150px] flex-grow flex items-center justify-center">
+                                <div class="spinner"></div>
+                            </div>
+                            <button id="generate-ai-tip" class="mt-4 w-full bg-[#E0A458] text-white font-bold py-2 px-4 rounded-lg hover:bg-[#d38b34] transition duration-300">
+                                ✨ Gerar Dica com IA
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="bg-white p-6 rounded-xl shadow-md card-enter">
+                        <h2 class="text-2xl font-bold text-purple-600 mb-4 flex items-center">
+                            Ajuste seu Plano com IA
+                            <button data-target-text="#goal-adjust-container div" class="tts-button hidden text-xl ml-4 text-gray-400 hover:text-purple-600">🔊</button>
+                        </h2>
+                        <p class="mb-4 text-gray-700">Selecione um novo foco e receba sugestões da IA para adaptar seu treino e alcançar seus objetivos mais rápido.</p>
+                        <div class="flex flex-col sm:flex-row items-center gap-4 mb-4">
+                            <label for="goal-adjust-select" class="font-semibold shrink-0">Meu novo objetivo:</label>
+                            <select id="goal-adjust-select" class="w-full flex-grow p-2 border border-gray-300 rounded-md">
+                                <option value="Aumentar Força Máxima">Aumentar Força Máxima</option>
+                                <option value="Melhorar Resistência Muscular">Melhorar Resistência Muscular</option>
+                                <option value="Otimizar para Perda de Gordura">Otimizar para Perda de Gordura</option>
+                            </select>
+                        </div>
+                        <div id="goal-adjust-container" class="text-gray-700 bg-purple-50 p-4 rounded-lg flex-grow min-h-[150px] flex items-center justify-center">
+                            <p>Aguardando sua seleção para gerar as sugestões de ajuste.</p>
+                        </div>
+                        <div id="goal-adjust-loader" class="hidden min-h-[150px] flex-grow flex items-center justify-center">
+                            <div class="spinner" style="border-left-color: #9333ea;"></div>
+                        </div>
+                        <button id="generate-goal-adjust-btn" class="mt-4 w-full bg-purple-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-purple-600 transition duration-300">
+                            ✨ Gerar Sugestão de Ajuste
+                        </button>
+                    </div>
+
+                    <div class="bg-white p-6 rounded-xl shadow-md card-enter">
+                         <h2 class="text-2xl font-bold text-indigo-600 mb-4 flex items-center">
+                            Diário de Progresso Semanal
+                             <button data-target-text="#progress-summary-container div" class="tts-button hidden text-xl ml-4 text-gray-400 hover:text-indigo-600">🔊</button>
+                        </h2>
+                        <p class="mb-4 text-gray-700">Anote como foi sua semana de treinos: como se sentiu, se aumentou pesos, dificuldades, etc. A IA vai ler suas notas, resumir seu progresso e te dar uma mensagem de motivação!</p>
+                        <textarea id="progress-notes" class="w-full p-2 border border-gray-300 rounded-md h-28" placeholder="Ex: Consegui aumentar o peso no supino! Me senti um pouco cansado na quarta-feira, mas o treino de pernas foi ótimo..."></textarea>
+                        <div id="progress-summary-container" class="hidden text-gray-700 bg-indigo-50 p-4 rounded-lg flex-grow min-h-[150px] mt-4">
+                        </div>
+                        <div id="progress-summary-loader" class="hidden min-h-[150px] flex-grow flex items-center justify-center mt-4">
+                            <div class="spinner" style="border-left-color: #4f46e5;"></div>
+                        </div>
+                        <button id="analyze-progress-btn" class="mt-4 w-full bg-indigo-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-600 transition duration-300">
+                            ✨ Analisar Progresso com IA
+                        </button>
+                    </div>
+                </section>
+                
+                <section id="day1" class="page hidden">
+                    <div class="text-center mb-6">
+                        <h2 class="text-3xl font-bold text-orange-600">Dia 1: Parte Superior</h2>
+                        <p class="text-gray-600">Foco em equilíbrio muscular entre movimentos de empurrar e puxar.</p>
+                    </div>
+                    <div class="space-y-4">
+                        <div class="bg-white p-6 rounded-xl shadow-md card-enter">
+                            <h3 class="text-xl font-bold text-[#E0A458] mb-4 flex items-center">
+                                Aquecimento Dinâmico
+                                <button data-target-text="#warmup-container-day1 div" class="tts-button hidden text-xl ml-4 text-gray-400 hover:text-orange-500">🔊</button>
+                            </h3>
+                            <div id="warmup-container-day1" class="text-gray-700 bg-orange-50 p-4 rounded-lg flex-grow min-h-[150px] flex items-center justify-center">
+                                <p>Clique no botão para gerar um aquecimento específico para o treino de hoje.</p>
+                            </div>
+                            <div id="warmup-loader-day1" class="hidden min-h-[150px] flex-grow flex items-center justify-center">
+                                <div class="spinner"></div>
+                            </div>
+                            <button data-day="superior" class="generate-warmup-btn mt-4 w-full bg-orange-400 text-white font-bold py-2 px-4 rounded-lg hover:bg-orange-500 transition duration-300">
+                                ✨ Gerar Aquecimento com IA
+                            </button>
+                        </div>
+                        <div class="exercise-card bg-white p-4 rounded-lg shadow-sm">
+                            <div class="flex justify-between items-center">
+                                <div>
+                                    <h3 class="font-bold text-lg">1. Supino Reto</h3>
+                                    <p class="text-sm text-gray-500">3 séries de 8-12 repetições</p>
+                                </div>
+                                <button class="toggle-details text-sm text-[#D38B34] font-semibold">Ver Detalhes</button>
+                            </div>
+                            <div class="details hidden mt-4 pt-4 border-t border-gray-200">
+                                <p><strong>Função:</strong> Principal construtor de massa para o peitoral. Também trabalha ombros e tríceps.</p>
+                                <div class="mt-4 pt-4 border-t border-dashed">
+                                    <div class="flex flex-col sm:grid sm:grid-cols-3 gap-4">
+                                        <div class="flex-1">
+                                            <button class="generate-ai-explanation w-full h-full text-sm text-white bg-[#E0A458] font-semibold py-2 px-3 rounded-md hover:bg-[#d38b34] transition">✨ Ver Explicação</button>
+                                            <div class="ai-explanation-container mt-2"></div>
+                                        </div>
+                                        <div class="flex-1">
+                                            <button class="generate-ai-variation w-full h-full text-sm text-white bg-teal-500 font-semibold py-2 px-3 rounded-md hover:bg-teal-600 transition">✨ Sugerir Variação</button>
+                                            <div class="ai-variation-container mt-2"></div>
+                                        </div>
+                                        <div class="flex-1">
+                                            <button class="generate-ai-form w-full h-full text-sm text-white bg-sky-500 font-semibold py-2 px-3 rounded-md hover:bg-sky-600 transition">✨ Descrever Forma</button>
+                                            <div class="ai-form-container mt-2"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="exercise-card bg-white p-4 rounded-lg shadow-sm">
+                            <div class="flex justify-between items-center">
+                                <div>
+                                    <h3 class="font-bold text-lg">2. Remada Curvada</h3>
+                                    <p class="text-sm text-gray-500">3 séries de 8-12 repetições</p>
+                                </div>
+                                <button class="toggle-details text-sm text-[#D38B34] font-semibold">Ver Detalhes</button>
+                            </div>
+                            <div class="details hidden mt-4 pt-4 border-t border-gray-200">
+                                <p><strong>Função:</strong> Excelente para a densidade e força das costas. <em>Técnica é fundamental: mantenha a coluna reta!</em></p>
+                                <div class="mt-4 pt-4 border-t border-dashed">
+                                    <div class="flex flex-col sm:grid sm:grid-cols-3 gap-4">
+                                        <div class="flex-1">
+                                            <button class="generate-ai-explanation w-full h-full text-sm text-white bg-[#E0A458] font-semibold py-2 px-3 rounded-md hover:bg-[#d38b34] transition">✨ Ver Explicação</button>
+                                            <div class="ai-explanation-container mt-2"></div>
+                                        </div>
+                                        <div class="flex-1">
+                                            <button class="generate-ai-variation w-full h-full text-sm text-white bg-teal-500 font-semibold py-2 px-3 rounded-md hover:bg-teal-600 transition">✨ Sugerir Variação</button>
+                                            <div class="ai-variation-container mt-2"></div>
+                                        </div>
+                                        <div class="flex-1">
+                                            <button class="generate-ai-form w-full h-full text-sm text-white bg-sky-500 font-semibold py-2 px-3 rounded-md hover:bg-sky-600 transition">✨ Descrever Forma</button>
+                                            <div class="ai-form-container mt-2"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                         <div class="exercise-card bg-white p-4 rounded-lg shadow-sm">
+                            <div class="flex justify-between items-center">
+                                <div>
+                                    <h3 class="font-bold text-lg">3. Desenvolvimento de Ombros</h3>
+                                    <p class="text-sm text-gray-500">3 séries de 10-12 repetições</p>
+                                </div>
+                                <button class="toggle-details text-sm text-[#D38B34] font-semibold">Ver Detalhes</button>
+                            </div>
+                            <div class="details hidden mt-4 pt-4 border-t border-gray-200">
+                                 <p><strong>Função:</strong> Foco principal na porção medial e anterior dos ombros. Sentado, você isola mais o músculo.</p>
+                                <div class="mt-4 pt-4 border-t border-dashed">
+                                    <div class="flex flex-col sm:grid sm:grid-cols-3 gap-4">
+                                        <div class="flex-1">
+                                            <button class="generate-ai-explanation w-full h-full text-sm text-white bg-[#E0A458] font-semibold py-2 px-3 rounded-md hover:bg-[#d38b34] transition">✨ Ver Explicação</button>
+                                            <div class="ai-explanation-container mt-2"></div>
+                                        </div>
+                                        <div class="flex-1">
+                                            <button class="generate-ai-variation w-full h-full text-sm text-white bg-teal-500 font-semibold py-2 px-3 rounded-md hover:bg-teal-600 transition">✨ Sugerir Variação</button>
+                                            <div class="ai-variation-container mt-2"></div>
+                                        </div>
+                                        <div class="flex-1">
+                                            <button class="generate-ai-form w-full h-full text-sm text-white bg-sky-500 font-semibold py-2 px-3 rounded-md hover:bg-sky-600 transition">✨ Descrever Forma</button>
+                                            <div class="ai-form-container mt-2"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="exercise-card bg-white p-4 rounded-lg shadow-sm">
+                            <div class="flex justify-between items-center">
+                                <div>
+                                    <h3 class="font-bold text-lg">4. Puxada Vertical</h3>
+                                    <p class="text-sm text-gray-500">3 séries até a falha (ou 8-12 reps)</p>
+                                </div>
+                                <button class="toggle-details text-sm text-[#D38B34] font-semibold">Ver Detalhes</button>
+                            </div>
+                            <div class="details hidden mt-4 pt-4 border-t border-gray-200">
+                                <p><strong>Função:</strong> Foco na "largura" das costas. Se não consegue fazer na barra fixa, o Lat Pulldown é a alternativa perfeita.</p>
+                                <div class="mt-4 pt-4 border-t border-dashed">
+                                    <div class="flex flex-col sm:grid sm:grid-cols-3 gap-4">
+                                        <div class="flex-1">
+                                            <button class="generate-ai-explanation w-full h-full text-sm text-white bg-[#E0A458] font-semibold py-2 px-3 rounded-md hover:bg-[#d38b34] transition">✨ Ver Explicação</button>
+                                            <div class="ai-explanation-container mt-2"></div>
+                                        </div>
+                                        <div class="flex-1">
+                                            <button class="generate-ai-variation w-full h-full text-sm text-white bg-teal-500 font-semibold py-2 px-3 rounded-md hover:bg-teal-600 transition">✨ Sugerir Variação</button>
+                                            <div class="ai-variation-container mt-2"></div>
+                                        </div>
+                                        <div class="flex-1">
+                                            <button class="generate-ai-form w-full h-full text-sm text-white bg-sky-500 font-semibold py-2 px-3 rounded-md hover:bg-sky-600 transition">✨ Descrever Forma</button>
+                                            <div class="ai-form-container mt-2"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="exercise-card bg-amber-50 border-l-4 border-amber-400 p-4 rounded-lg shadow-sm">
+                            <div class="flex justify-between items-center">
+                                <div>
+                                    <h3 class="font-bold text-lg">⭐ Face Pull (Melhoria)</h3>
+                                    <p class="text-sm text-gray-500">3 séries de 12-15 repetições</p>
+                                </div>
+                                <button class="toggle-details text-sm text-[#D38B34] font-semibold">Ver Detalhes</button>
+                            </div>
+                            <div class="details hidden mt-4 pt-4 border-t border-gray-200">
+                                <p><strong>Por quê?</strong> Fantástico para a saúde dos ombros e para a postura, prevenindo dores e lesões futuras.</p>
+                                <div class="mt-4 pt-4 border-t border-dashed">
+                                    <div class="flex flex-col sm:grid sm:grid-cols-3 gap-4">
+                                        <div class="flex-1">
+                                            <button class="generate-ai-explanation w-full h-full text-sm text-white bg-[#E0A458] font-semibold py-2 px-3 rounded-md hover:bg-[#d38b34] transition">✨ Ver Explicação</button>
+                                            <div class="ai-explanation-container mt-2"></div>
+                                        </div>
+                                        <div class="flex-1">
+                                            <button class="generate-ai-variation w-full h-full text-sm text-white bg-teal-500 font-semibold py-2 px-3 rounded-md hover:bg-teal-600 transition">✨ Sugerir Variação</button>
+                                            <div class="ai-variation-container mt-2"></div>
+                                        </div>
+                                        <div class="flex-1">
+                                            <button class="generate-ai-form w-full h-full text-sm text-white bg-sky-500 font-semibold py-2 px-3 rounded-md hover:bg-sky-600 transition">✨ Descrever Forma</button>
+                                            <div class="ai-form-container mt-2"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="exercise-card bg-white p-4 rounded-lg shadow-sm">
+                            <div class="flex justify-between items-center">
+                                <div>
+                                    <h3 class="font-bold text-lg">5. Rosca Direta</h3>
+                                    <p class="text-sm text-gray-500">3 séries de 10-12 repetições</p>
+                                </div>
+                                <button class="toggle-details text-sm text-[#D38B34] font-semibold">Ver Detalhes</button>
+                            </div>
+                            <div class="details hidden mt-4 pt-4 border-t border-gray-200">
+                                <p><strong>Função:</strong> Isolamento do bíceps. A barra EZ é mais confortável para os punhos.</p>
+                                <div class="mt-4 pt-4 border-t border-dashed">
+                                    <div class="flex flex-col sm:grid sm:grid-cols-3 gap-4">
+                                        <div class="flex-1">
+                                            <button class="generate-ai-explanation w-full h-full text-sm text-white bg-[#E0A458] font-semibold py-2 px-3 rounded-md hover:bg-[#d38b34] transition">✨ Ver Explicação</button>
+                                            <div class="ai-explanation-container mt-2"></div>
+                                        </div>
+                                        <div class="flex-1">
+                                            <button class="generate-ai-variation w-full h-full text-sm text-white bg-teal-500 font-semibold py-2 px-3 rounded-md hover:bg-teal-600 transition">✨ Sugerir Variação</button>
+                                            <div class="ai-variation-container mt-2"></div>
+                                        </div>
+                                        <div class="flex-1">
+                                            <button class="generate-ai-form w-full h-full text-sm text-white bg-sky-500 font-semibold py-2 px-3 rounded-md hover:bg-sky-600 transition">✨ Descrever Forma</button>
+                                            <div class="ai-form-container mt-2"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="exercise-card bg-white p-4 rounded-lg shadow-sm">
+                            <div class="flex justify-between items-center">
+                                <div>
+                                    <h3 class="font-bold text-lg">6. Tríceps Pulley</h3>
+                                    <p class="text-sm text-gray-500">3 séries de 10-12 repetições</p>
+                                </div>
+                                <button class="toggle-details text-sm text-[#D38B34] font-semibold">Ver Detalhes</button>
+                            </div>
+                            <div class="details hidden mt-4 pt-4 border-t border-gray-200">
+                               <p><strong>Função:</strong> Isolamento do tríceps. A corda permite uma melhor contração do músculo.</p>
+                                <div class="mt-4 pt-4 border-t border-dashed">
+                                    <div class="flex flex-col sm:grid sm:grid-cols-3 gap-4">
+                                        <div class="flex-1">
+                                            <button class="generate-ai-explanation w-full h-full text-sm text-white bg-[#E0A458] font-semibold py-2 px-3 rounded-md hover:bg-[#d38b34] transition">✨ Ver Explicação</button>
+                                            <div class="ai-explanation-container mt-2"></div>
+                                        </div>
+                                        <div class="flex-1">
+                                            <button class="generate-ai-variation w-full h-full text-sm text-white bg-teal-500 font-semibold py-2 px-3 rounded-md hover:bg-teal-600 transition">✨ Sugerir Variação</button>
+                                            <div class="ai-variation-container mt-2"></div>
+                                        </div>
+                                        <div class="flex-1">
+                                            <button class="generate-ai-form w-full h-full text-sm text-white bg-sky-500 font-semibold py-2 px-3 rounded-md hover:bg-sky-600 transition">✨ Descrever Forma</button>
+                                            <div class="ai-form-container mt-2"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="bg-white p-4 rounded-lg shadow-sm">
+                            <p class="font-semibold text-gray-500">Alongamento: 5-10 min focado nos músculos trabalhados.</p>
+                        </div>
+                        <div class="mt-8 bg-white p-6 rounded-xl shadow-md card-enter">
+                            <h3 class="text-2xl font-bold text-[#E0A458] mb-4 flex items-center">
+                                Nutrição Pós-Treino com IA
+                                <button data-target-text="#meal-suggestion-container-day1 div" class="tts-button hidden text-xl ml-4 text-gray-400 hover:text-orange-500">🔊</button>
+                            </h3>
+                            <div id="meal-suggestion-container-day1" class="text-gray-700 bg-orange-50 p-4 rounded-lg flex-grow min-h-[150px] flex items-center justify-center">
+                                <p>Clique no botão para receber uma sugestão de refeição ideal para sua recuperação.</p>
+                            </div>
+                            <div id="meal-loader-day1" class="hidden min-h-[150px] flex-grow flex items-center justify-center">
+                                <div class="spinner"></div>
+                            </div>
+                            <button data-day="superior" class="generate-meal-btn mt-4 w-full bg-[#E0A458] text-white font-bold py-2 px-4 rounded-lg hover:bg-[#d38b34] transition duration-300">
+                                ✨ Sugerir Refeição
+                            </button>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="day2" class="page hidden">
+                    <div class="text-center mb-6">
+                        <h2 class="text-3xl font-bold text-teal-600">Dia 2: Cardio e Recuperação Ativa</h2>
+                        <p class="text-gray-600">Escolha a opção que melhor se adapta ao seu tempo e energia.</p>
+                    </div>
+                    <div class="grid md:grid-cols-2 gap-8">
+                        <div class="bg-white p-6 rounded-xl shadow-md">
+                            <h3 class="font-bold text-xl mb-2">Opção 1: Cardio Contínuo (LISS)</h3>
+                            <p class="text-gray-600 mb-4">Ótimo para resistência, queima de gordura e recuperação ativa com baixo impacto.</p>
+                            <ul class="list-disc list-inside text-gray-700 space-y-2">
+                                <li><strong>Corrida:</strong> 30-45 minutos em intensidade moderada.</li>
+                                <li><strong>Bicicleta:</strong> 45-60 minutos em terreno variado.</li>
+                            </ul>
+                        </div>
+                        <div class="bg-amber-50 p-6 rounded-xl shadow-md border-l-4 border-amber-400">
+                            <h3 class="font-bold text-xl mb-2">⭐ Opção 2: HIIT (Alternativa)</h3>
+                            <p class="text-gray-600 mb-4">Mais eficiente em tempo, melhora o condicionamento e acelera o metabolismo.</p>
+                            <p class="font-semibold text-gray-800">Exemplo na esteira (20 min):</p>
+                            <ol class="list-decimal list-inside text-gray-700 space-y-1 mt-2">
+                                <li>5 min de aquecimento (caminhada).</li>
+                                <li>8 séries de: 1 min de corrida forte + 1 min de caminhada.</li>
+                                <li>4 min de desaquecimento (caminhada leve).</li>
+                            </ol>
+                        </div>
+                    </div>
+                    <div class="mt-8 bg-white p-6 rounded-xl shadow-md card-enter">
+                        <h3 class="text-2xl font-bold text-teal-600 mb-4 flex items-center">
+                            Playlist para seu Cardio com IA
+                             <button data-target-text="#playlist-container div" class="tts-button hidden text-xl ml-4 text-gray-400 hover:text-teal-600">🔊</button>
+                        </h3>
+                        <div class="flex flex-col sm:flex-row items-center gap-4 mb-4">
+                            <label for="genre-select" class="font-semibold">Escolha um gênero:</label>
+                            <select id="genre-select" class="flex-grow p-2 border border-gray-300 rounded-md">
+                                <option value="Pop Energético">Pop Energético</option>
+                                <option value="Rock Clássico">Rock Clássico</option>
+                                <option value="Eletrônica/Dance">Eletrônica/Dance</option>
+                                <option value="Hip-Hop/Rap">Hip-Hop/Rap</option>
+                                <option value="Indie/Alternativo">Indie/Alternativo</option>
+                            </select>
+                        </div>
+                        <div id="playlist-container" class="text-gray-700 bg-teal-50 p-4 rounded-lg flex-grow min-h-[150px] flex items-center justify-center">
+                            <p>Escolha um gênero e clique no botão para criar sua playlist!</p>
+                        </div>
+                        <div id="playlist-loader" class="hidden min-h-[150px] flex-grow flex items-center justify-center">
+                            <div class="spinner" style="border-left-color: #14B8A6;"></div>
+                        </div>
+                        <button id="generate-playlist-btn" class="mt-4 w-full bg-teal-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-teal-600 transition duration-300">
+                            ✨ Gerar Playlist
+                        </button>
+                    </div>
+                    <div class="bg-white p-4 rounded-lg shadow-sm mt-8">
+                        <p class="font-semibold text-gray-500 text-center">Finalize com 5-10 min de alongamento completo ou rolo de liberação miofascial.</p>
+                    </div>
+                </section>
+                
+                <section id="day3" class="page hidden">
+                    <div class="text-center mb-6">
+                        <h2 class="text-3xl font-bold text-blue-600">Dia 3: Parte Inferior</h2>
+                        <p class="text-gray-600">Combinação de exercícios compostos e de isolamento para pernas completas.</p>
+                    </div>
+                    <div class="space-y-4">
+                        <div class="bg-white p-6 rounded-xl shadow-md card-enter">
+                            <h3 class="text-xl font-bold text-[#E0A458] mb-4 flex items-center">
+                                Aquecimento Dinâmico
+                                <button data-target-text="#warmup-container-day3 div" class="tts-button hidden text-xl ml-4 text-gray-400 hover:text-orange-500">🔊</button>
+                            </h3>
+                            <div id="warmup-container-day3" class="text-gray-700 bg-orange-50 p-4 rounded-lg flex-grow min-h-[150px] flex items-center justify-center">
+                                <p>Clique no botão para gerar um aquecimento específico para o treino de hoje.</p>
+                            </div>
+                            <div id="warmup-loader-day3" class="hidden min-h-[150px] flex-grow flex items-center justify-center">
+                                <div class="spinner"></div>
+                            </div>
+                            <button data-day="inferior" class="generate-warmup-btn mt-4 w-full bg-orange-400 text-white font-bold py-2 px-4 rounded-lg hover:bg-orange-500 transition duration-300">
+                                ✨ Gerar Aquecimento com IA
+                            </button>
+                        </div>
+                        <div class="exercise-card bg-white p-4 rounded-lg shadow-sm">
+                            <div class="flex justify-between items-center">
+                                <div>
+                                    <h3 class="font-bold text-lg">1. Agachamento Livre</h3>
+                                    <p class="text-sm text-gray-500">3 séries de 8-12 repetições</p>
+                                </div>
+                                <button class="toggle-details text-sm text-[#D38B34] font-semibold">Ver Detalhes</button>
+                            </div>
+                            <div class="details hidden mt-4 pt-4 border-t border-gray-200">
+                                <p><strong>Função:</strong> O principal exercício para pernas, trabalhando quadríceps, glúteos e posteriores.</p>
+                                <div class="mt-4 pt-4 border-t border-dashed">
+                                    <div class="flex flex-col sm:grid sm:grid-cols-3 gap-4">
+                                        <div class="flex-1">
+                                            <button class="generate-ai-explanation w-full h-full text-sm text-white bg-[#E0A458] font-semibold py-2 px-3 rounded-md hover:bg-[#d38b34] transition">✨ Ver Explicação</button>
+                                            <div class="ai-explanation-container mt-2"></div>
+                                        </div>
+                                        <div class="flex-1">
+                                            <button class="generate-ai-variation w-full h-full text-sm text-white bg-teal-500 font-semibold py-2 px-3 rounded-md hover:bg-teal-600 transition">✨ Sugerir Variação</button>
+                                            <div class="ai-variation-container mt-2"></div>
+                                        </div>
+                                        <div class="flex-1">
+                                            <button class="generate-ai-form w-full h-full text-sm text-white bg-sky-500 font-semibold py-2 px-3 rounded-md hover:bg-sky-600 transition">✨ Descrever Forma</button>
+                                            <div class="ai-form-container mt-2"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="exercise-card bg-white p-4 rounded-lg shadow-sm">
+                            <div class="flex justify-between items-center">
+                                <div>
+                                    <h3 class="font-bold text-lg">2. Levantamento Terra Romeno</h3>
+                                    <p class="text-sm text-gray-500">3 séries de 8-12 repetições</p>
+                                </div>
+                                <button class="toggle-details text-sm text-[#D38B34] font-semibold">Ver Detalhes</button>
+                            </div>
+                            <div class="details hidden mt-4 pt-4 border-t border-gray-200">
+                                <p><strong>⭐ Por que essa variação?</strong> Foca na cadeia posterior (posteriores e glúteos), complementando o agachamento.</p>
+                                <div class="mt-4 pt-4 border-t border-dashed">
+                                    <div class="flex flex-col sm:grid sm:grid-cols-3 gap-4">
+                                        <div class="flex-1">
+                                            <button class="generate-ai-explanation w-full h-full text-sm text-white bg-[#E0A458] font-semibold py-2 px-3 rounded-md hover:bg-[#d38b34] transition">✨ Ver Explicação</button>
+                                            <div class="ai-explanation-container mt-2"></div>
+                                        </div>
+                                        <div class="flex-1">
+                                            <button class="generate-ai-variation w-full h-full text-sm text-white bg-teal-500 font-semibold py-2 px-3 rounded-md hover:bg-teal-600 transition">✨ Sugerir Variação</button>
+                                            <div class="ai-variation-container mt-2"></div>
+                                        </div>
+                                        <div class="flex-1">
+                                            <button class="generate-ai-form w-full h-full text-sm text-white bg-sky-500 font-semibold py-2 px-3 rounded-md hover:bg-sky-600 transition">✨ Descrever Forma</button>
+                                            <div class="ai-form-container mt-2"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="exercise-card bg-amber-50 border-l-4 border-amber-400 p-4 rounded-lg shadow-sm">
+                            <div class="flex justify-between items-center">
+                                <div>
+                                    <h3 class="font-bold text-lg">⭐ Elevação Pélvica (Melhoria)</h3>
+                                    <p class="text-sm text-gray-500">3 séries de 10-15 repetições</p>
+                                </div>
+                                <button class="toggle-details text-sm text-[#D38B34] font-semibold">Ver Detalhes</button>
+                            </div>
+                            <div class="details hidden mt-4 pt-4 border-t border-gray-200">
+                                <p><strong>Por quê?</strong> É o melhor exercício para isolar e construir os glúteos, essenciais para a estabilidade.</p>
+                                <div class="mt-4 pt-4 border-t border-dashed">
+                                    <div class="flex flex-col sm:grid sm:grid-cols-3 gap-4">
+                                        <div class="flex-1">
+                                            <button class="generate-ai-explanation w-full h-full text-sm text-white bg-[#E0A458] font-semibold py-2 px-3 rounded-md hover:bg-[#d38b34] transition">✨ Ver Explicação</button>
+                                            <div class="ai-explanation-container mt-2"></div>
+                                        </div>
+                                        <div class="flex-1">
+                                            <button class="generate-ai-variation w-full h-full text-sm text-white bg-teal-500 font-semibold py-2 px-3 rounded-md hover:bg-teal-600 transition">✨ Sugerir Variação</button>
+                                            <div class="ai-variation-container mt-2"></div>
+                                        </div>
+                                        <div class="flex-1">
+                                            <button class="generate-ai-form w-full h-full text-sm text-white bg-sky-500 font-semibold py-2 px-3 rounded-md hover:bg-sky-600 transition">✨ Descrever Forma</button>
+                                            <div class="ai-form-container mt-2"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="exercise-card bg-white p-4 rounded-lg shadow-sm">
+                            <div class="flex justify-between items-center">
+                                <div>
+                                    <h3 class="font-bold text-lg">3. Leg Press</h3>
+                                    <p class="text-sm text-gray-500">3 séries de 10-12 repetições</p>
+                                </div>
+                                <button class="toggle-details text-sm text-[#D38B34] font-semibold">Ver Detalhes</button>
+                            </div>
+                            <div class="details hidden mt-4 pt-4 border-t border-gray-200">
+                                <p><strong>Função:</strong> Permite adicionar volume para o quadríceps com segurança e sem sobrecarregar a lombar.</p>
+                                <div class="mt-4 pt-4 border-t border-dashed">
+                                    <div class="flex flex-col sm:grid sm:grid-cols-3 gap-4">
+                                        <div class="flex-1">
+                                            <button class="generate-ai-explanation w-full h-full text-sm text-white bg-[#E0A458] font-semibold py-2 px-3 rounded-md hover:bg-[#d38b34] transition">✨ Ver Explicação</button>
+                                            <div class="ai-explanation-container mt-2"></div>
+                                        </div>
+                                        <div class="flex-1">
+                                            <button class="generate-ai-variation w-full h-full text-sm text-white bg-teal-500 font-semibold py-2 px-3 rounded-md hover:bg-teal-600 transition">✨ Sugerir Variação</button>
+                                            <div class="ai-variation-container mt-2"></div>
+                                        </div>
+                                        <div class="flex-1">
+                                            <button class="generate-ai-form w-full h-full text-sm text-white bg-sky-500 font-semibold py-2 px-3 rounded-md hover:bg-sky-600 transition">✨ Descrever Forma</button>
+                                            <div class="ai-form-container mt-2"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="exercise-card bg-white p-4 rounded-lg shadow-sm">
+                            <div class="flex justify-between items-center">
+                                <div>
+                                    <h3 class="font-bold text-lg">4. Cadeira Extensora</h3>
+                                    <p class="text-sm text-gray-500">3 séries de 10-12 repetições</p>
+                                </div>
+                                <button class="toggle-details text-sm text-[#D38B34] font-semibold">Ver Detalhes</button>
+                            </div>
+                            <div class="details hidden mt-4 pt-4 border-t border-gray-200">
+                               <p><strong>Função:</strong> Isola completamente o quadríceps.</p>
+                                <div class="mt-4 pt-4 border-t border-dashed">
+                                    <div class="flex flex-col sm:grid sm:grid-cols-3 gap-4">
+                                        <div class="flex-1">
+                                            <button class="generate-ai-explanation w-full h-full text-sm text-white bg-[#E0A458] font-semibold py-2 px-3 rounded-md hover:bg-[#d38b34] transition">✨ Ver Explicação</button>
+                                            <div class="ai-explanation-container mt-2"></div>
+                                        </div>
+                                        <div class="flex-1">
+                                            <button class="generate-ai-variation w-full h-full text-sm text-white bg-teal-500 font-semibold py-2 px-3 rounded-md hover:bg-teal-600 transition">✨ Sugerir Variação</button>
+                                            <div class="ai-variation-container mt-2"></div>
+                                        </div>
+                                        <div class="flex-1">
+                                            <button class="generate-ai-form w-full h-full text-sm text-white bg-sky-500 font-semibold py-2 px-3 rounded-md hover:bg-sky-600 transition">✨ Descrever Forma</button>
+                                            <div class="ai-form-container mt-2"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="exercise-card bg-white p-4 rounded-lg shadow-sm">
+                            <div class="flex justify-between items-center">
+                                <div>
+                                    <h3 class="font-bold text-lg">5. Mesa Flexora</h3>
+                                    <p class="text-sm text-gray-500">3 séries de 10-12 repetições</p>
+                                </div>
+                                <button class="toggle-details text-sm text-[#D38B34] font-semibold">Ver Detalhes</button>
+                            </div>
+                            <div class="details hidden mt-4 pt-4 border-t border-gray-200">
+                               <p><strong>Função:</strong> Isola os posteriores de coxa (isquiotibiais).</p>
+                                <div class="mt-4 pt-4 border-t border-dashed">
+                                    <div class="flex flex-col sm:grid sm:grid-cols-3 gap-4">
+                                        <div class="flex-1">
+                                            <button class="generate-ai-explanation w-full h-full text-sm text-white bg-[#E0A458] font-semibold py-2 px-3 rounded-md hover:bg-[#d38b34] transition">✨ Ver Explicação</button>
+                                            <div class="ai-explanation-container mt-2"></div>
+                                        </div>
+                                        <div class="flex-1">
+                                            <button class="generate-ai-variation w-full h-full text-sm text-white bg-teal-500 font-semibold py-2 px-3 rounded-md hover:bg-teal-600 transition">✨ Sugerir Variação</button>
+                                            <div class="ai-variation-container mt-2"></div>
+                                        </div>
+                                        <div class="flex-1">
+                                            <button class="generate-ai-form w-full h-full text-sm text-white bg-sky-500 font-semibold py-2 px-3 rounded-md hover:bg-sky-600 transition">✨ Descrever Forma</button>
+                                            <div class="ai-form-container mt-2"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="exercise-card bg-white p-4 rounded-lg shadow-sm">
+                            <div class="flex justify-between items-center">
+                                <div>
+                                    <h3 class="font-bold text-lg">6. Panturrilhas em Pé</h3>
+                                    <p class="text-sm text-gray-500">3 séries de 12-15 repetições</p>
+                                </div>
+                                <button class="toggle-details text-sm text-[#D38B34] font-semibold">Ver Detalhes</button>
+                            </div>
+                            <div class="details hidden mt-4 pt-4 border-t border-gray-200">
+                                <p><strong>Função:</strong> Trabalho focado nas panturrilhas.</p>
+                                <div class="mt-4 pt-4 border-t border-dashed">
+                                    <div class="flex flex-col sm:grid sm:grid-cols-3 gap-4">
+                                        <div class="flex-1">
+                                            <button class="generate-ai-explanation w-full h-full text-sm text-white bg-[#E0A458] font-semibold py-2 px-3 rounded-md hover:bg-[#d38b34] transition">✨ Ver Explicação</button>
+                                            <div class="ai-explanation-container mt-2"></div>
+                                        </div>
+                                        <div class="flex-1">
+                                            <button class="generate-ai-variation w-full h-full text-sm text-white bg-teal-500 font-semibold py-2 px-3 rounded-md hover:bg-teal-600 transition">✨ Sugerir Variação</button>
+                                            <div class="ai-variation-container mt-2"></div>
+                                        </div>
+                                        <div class="flex-1">
+                                            <button class="generate-ai-form w-full h-full text-sm text-white bg-sky-500 font-semibold py-2 px-3 rounded-md hover:bg-sky-600 transition">✨ Descrever Forma</button>
+                                            <div class="ai-form-container mt-2"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="bg-white p-4 rounded-lg shadow-sm">
+                            <p class="font-semibold text-gray-500">Alongamento: 5-10 min focado em quadríceps, posteriores, glúteos e panturrilhas.</p>
+                        </div>
+                        <div class="mt-8 bg-white p-6 rounded-xl shadow-md card-enter">
+                            <h3 class="text-2xl font-bold text-[#E0A458] mb-4 flex items-center">
+                                Nutrição Pós-Treino com IA
+                                <button data-target-text="#meal-suggestion-container-day3 div" class="tts-button hidden text-xl ml-4 text-gray-400 hover:text-orange-500">🔊</button>
+                            </h3>
+                            <div id="meal-suggestion-container-day3" class="text-gray-700 bg-orange-50 p-4 rounded-lg flex-grow min-h-[150px] flex items-center justify-center">
+                                <p>Clique no botão para receber uma sugestão de refeição ideal para sua recuperação.</p>
+                            </div>
+                            <div id="meal-loader-day3" class="hidden min-h-[150px] flex-grow flex items-center justify-center">
+                                <div class="spinner"></div>
+                            </div>
+                            <button data-day="inferior" class="generate-meal-btn mt-4 w-full bg-[#E0A458] text-white font-bold py-2 px-4 rounded-lg hover:bg-[#d38b34] transition duration-300">
+                                ✨ Sugerir Refeição
+                            </button>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="diet" class="page hidden space-y-8">
+                    <div class="text-center mb-6">
+                        <h2 class="text-3xl font-bold text-green-600">Plano de Nutrição</h2>
+                        <p class="text-gray-600">Uma base para apoiar seus treinos e recuperação. Sinta-se à vontade para adaptar!</p>
+                    </div>
+                    
+                    <div class="bg-white p-6 rounded-xl shadow-md card-enter">
+                        <h2 class="text-2xl font-bold text-orange-600 mb-4 flex items-center">
+                            Criador de Receitas com IA
+                            <button data-target-text="#recipe-container div" class="tts-button hidden text-xl ml-4 text-gray-400 hover:text-orange-600">🔊</button>
+                        </h2>
+                        <p class="mb-4 text-gray-700">Tem alguns ingredientes em casa e não sabe o que cozinhar? Liste-os abaixo e deixe a IA criar uma receita fitness para você!</p>
+                        <textarea id="ingredients-input" class="w-full p-2 mt-1 border border-gray-300 rounded-md h-24" placeholder="Ex: ovos, aveia, banana, pasta de amendoim..."></textarea>
+                        <div id="recipe-container" class="text-gray-700 bg-orange-50 p-4 rounded-lg flex-grow min-h-[150px] mt-4 flex items-center justify-center">
+                            <p>Liste seus ingredientes e clique no botão para criar uma receita.</p>
+                        </div>
+                        <div id="recipe-loader" class="hidden min-h-[150px] flex-grow flex items-center justify-center mt-4">
+                            <div class="spinner" style="border-left-color: #f97316;"></div>
+                        </div>
+                        <button id="create-recipe-btn" class="mt-4 w-full bg-orange-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-orange-600 transition duration-300">
+                            ✨ Criar Receita Saudável
+                        </button>
+                    </div>
+
+
+                    <div class="bg-white p-6 rounded-xl shadow-md card-enter">
+                        <h2 class="text-2xl font-bold text-cyan-600 mb-4 flex items-center">
+                            Monte seu Plano com IA
+                            <button data-target-text="#ai-diet-plan-container div" class="tts-button hidden text-xl ml-4 text-gray-400 hover:text-cyan-600">🔊</button>
+                        </h2>
+                        <p class="mb-4 text-gray-700">Personalize sua dieta! Informe seus dados e a IA criará um plano alimentar de um dia, exclusivo para você.</p>
+                        <div class="space-y-4">
+                            <div>
+                                <label for="diet-goal" class="block text-sm font-medium text-gray-700">Objetivo Principal</label>
+                                <select id="diet-goal" class="mt-1 block w-full p-2 border border-gray-300 rounded-md">
+                                    <option value="Ganho de Massa Muscular">Ganho de Massa Muscular</option>
+                                    <option value="Perda de Gordura">Perda de Gordura</option>
+                                    <option value="Manutenção de Peso">Manutenção de Peso</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="diet-restrictions" class="block text-sm font-medium text-gray-700">Restrições ou Preferências (opcional)</label>
+                                <input type="text" id="diet-restrictions" placeholder="Ex: vegetariano, sem lactose, sem glúten" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-cyan-500 focus:border-cyan-500 sm:text-sm">
+                            </div>
+                            <div>
+                                <label for="diet-meals" class="block text-sm font-medium text-gray-700">Número de Refeições por Dia</label>
+                                <select id="diet-meals" class="mt-1 block w-full p-2 border border-gray-300 rounded-md">
+                                    <option>4</option>
+                                    <option selected>5</option>
+                                    <option>6</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div id="ai-diet-plan-container" class="text-gray-700 bg-cyan-50 p-4 rounded-lg flex-grow min-h-[150px] mt-4 flex items-center justify-center">
+                            <p>Preencha os campos e clique para gerar seu plano!</p>
+                        </div>
+                        <div id="ai-diet-plan-loader" class="hidden min-h-[150px] flex-grow flex items-center justify-center mt-4">
+                            <div class="spinner" style="border-left-color: #0891b2;"></div>
+                        </div>
+                        <button id="generate-ai-diet-plan-btn" class="mt-4 w-full bg-cyan-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-cyan-600 transition duration-300">
+                            ✨ Gerar Plano de Dieta com IA
+                        </button>
+                    </div>
+
+                    <div class="bg-white p-6 rounded-xl shadow-md card-enter">
+                        <h2 class="text-2xl font-bold text-yellow-600 mb-4 flex items-center">
+                            Analisador de Refeição com IA
+                             <button data-target-text="#meal-analysis-container div" class="tts-button hidden text-xl ml-4 text-gray-400 hover:text-yellow-600">🔊</button>
+                        </h2>
+                        <p class="mb-4 text-gray-700">Descreva uma refeição que você fez e a IA irá fornecer uma estimativa de calorias e macros. Lembre-se, é uma aproximação!</p>
+                        <textarea id="meal-input" class="w-full p-2 mt-1 border border-gray-300 rounded-md h-24" placeholder="Ex: 1 prato de arroz com feijão, 150g de filé de frango grelhado e uma salada de alface, tomate e cenoura."></textarea>
+                        <div id="meal-analysis-container" class="text-gray-700 bg-yellow-50 p-4 rounded-lg flex-grow min-h-[150px] mt-4 flex items-center justify-center">
+                            <p>Descreva sua refeição e clique no botão para analisar.</p>
+                        </div>
+                        <div id="meal-analysis-loader" class="hidden min-h-[150px] flex-grow flex items-center justify-center mt-4">
+                            <div class="spinner" style="border-left-color: #ca8a04;"></div>
+                        </div>
+                        <button id="analyze-meal-btn" class="mt-4 w-full bg-yellow-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-yellow-600 transition duration-300">
+                            ✨ Analisar Refeição
+                        </button>
+                    </div>
+
+                    <div class="bg-white p-6 rounded-xl shadow-md card-enter">
+                        <h2 class="text-2xl font-bold text-lime-600 mb-4 flex items-center">
+                            Guia de Suplementos com IA
+                             <button data-target-text="#supplement-info-container div" class="tts-button hidden text-xl ml-4 text-gray-400 hover:text-lime-600">🔊</button>
+                        </h2>
+                        <p class="mb-4 text-gray-700">Tem dúvidas sobre algum suplemento? Digite o nome abaixo e a IA te explica tudo!</p>
+                        <div>
+                            <label for="supplement-input" class="block text-sm font-medium text-gray-700">Nome do Suplemento</label>
+                            <input type="text" id="supplement-input" placeholder="Ex: Creatina, Whey Protein, BCAA" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-lime-500 focus:border-lime-500 sm:text-sm">
+                        </div>
+                        <div id="supplement-info-container" class="text-gray-700 bg-lime-50 p-4 rounded-lg flex-grow min-h-[150px] mt-4 flex items-center justify-center">
+                            <p>Digite o nome de um suplemento e clique no botão.</p>
+                        </div>
+                        <div id="supplement-info-loader" class="hidden min-h-[150px] flex-grow flex items-center justify-center mt-4">
+                            <div class="spinner" style="border-left-color: #65a30d;"></div>
+                        </div>
+                        <button id="generate-supplement-info-btn" class="mt-4 w-full bg-lime-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-lime-600 transition duration-300">
+                            ✨ Buscar Informações
+                        </button>
+                    </div>
+
+                    <div class="bg-white p-6 rounded-xl shadow-md card-enter">
+                        <h3 class="text-xl font-bold text-green-700 mb-4">Plano de Nutrição Sugerido</h3>
+                        <div class="space-y-6">
+                            <div>
+                                <h4 class="font-bold text-lg">Café da Manhã</h4>
+                                <ul class="list-disc list-inside text-gray-600 mt-2 space-y-1">
+                                    <li><strong>Opção 1:</strong> Aveia cozida com leite de amêndoas, banana em fatias e 1 colher de sopa de manteiga de amendoim.</li>
+                                    <li><strong>Opção 2:</strong> Omelete (3 claras, 1 gema) com espinafre e tomate, acompanhado de 1 fatia de pão integral.</li>
+                                </ul>
+                            </div>
+                            <div class="border-t pt-4">
+                                <h4 class="font-bold text-lg">Lanche da Manhã</h4>
+                                <ul class="list-disc list-inside text-gray-600 mt-2 space-y-1">
+                                    <li><strong>Opção 1:</strong> Iogurte grego sem lactose com frutas vermelhas.</li>
+                                    <li><strong>Opção 2:</strong> Maçã com 1 colher de sopa de pasta de amendoim.</li>
+                                </ul>
+                            </div>
+                            <div class="border-t pt-4">
+                                <h4 class="font-bold text-lg">Almoço</h4>
+                                <ul class="list-disc list-inside text-gray-600 mt-2 space-y-1">
+                                    <li><strong>Opção 1:</strong> Peito de frango grelhado, quinoa e brócolis no vapor.</li>
+                                    <li><strong>Opção 2:</strong> Salada de atum (com grão-de-bico, cenoura ralada, azeite e limão) sobre folhas verdes.</li>
+                                </ul>
+                            </div>
+                             <div class="border-t pt-4">
+                                <h4 class="font-bold text-lg">Lanche da Tarde (Pré-treino)</h4>
+                                <ul class="list-disc list-inside text-gray-600 mt-2 space-y-1">
+                                    <li><strong>Opção 1:</strong> Smoothie de proteína (whey sem lactose, banana, aveia, água).</li>
+                                    <li><strong>Opção 2:</strong> Barra de proteína sem lactose.</li>
+                                </ul>
+                            </div>
+                            <div class="border-t pt-4">
+                                <h4 class="font-bold text-lg">Jantar</h4>
+                                <ul class="list-disc list-inside text-gray-600 mt-2 space-y-1">
+                                    <li><strong>Opção 1:</strong> Salmão grelhado com batata-doce assada e aspargos.</li>
+                                    <li><strong>Opção 2:</strong> Tofu grelhado com arroz integral e legumes salteados.</li>
+                                </ul>
+                            </div>
+                             <div class="border-t pt-4">
+                                <h4 class="font-bold text-lg">Ceia (opcional)</h4>
+                                <ul class="list-disc list-inside text-gray-600 mt-2 space-y-1">
+                                    <li><strong>Opção 1:</strong> Mix de nozes e sementes.</li>
+                                    <li><strong>Opção 2:</strong> Fatia de pão integral com abacate.</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="quick-workout" class="page hidden space-y-8">
+                    <div class="text-center mb-6">
+                        <h2 class="text-3xl font-bold text-red-600">Treino Rápido com IA</h2>
+                        <p class="text-gray-600">Sem tempo? Sem problemas. Gere um treino eficaz em poucos minutos!</p>
+                    </div>
+                    <div class="bg-white p-6 rounded-xl shadow-md card-enter">
+                         <h2 class="text-2xl font-bold text-red-600 mb-4 flex items-center">
+                            Seu Treino Expresso
+                             <button data-target-text="#quick-workout-container div" class="tts-button hidden text-xl ml-4 text-gray-400 hover:text-red-600">🔊</button>
+                        </h2>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label for="quick-workout-time" class="block text-sm font-medium text-gray-700">Tempo Disponível</label>
+                                <select id="quick-workout-time" class="mt-1 block w-full p-2 border border-gray-300 rounded-md">
+                                    <option value="15 minutos">15 Minutos</option>
+                                    <option value="20 minutos" selected>20 Minutos</option>
+                                    <option value="30 minutos">30 Minutos</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="quick-workout-equipment" class="block text-sm font-medium text-gray-700">Equipamento Disponível</label>
+                                <select id="quick-workout-equipment" class="mt-1 block w-full p-2 border border-gray-300 rounded-md">
+                                    <option value="Apenas peso do corpo">Apenas Peso do Corpo</option>
+                                    <option value="Halteres leves">Halteres Leves</option>
+                                    <option value="Elásticos de resistência">Elásticos de Resistência</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div id="quick-workout-container" class="text-gray-700 bg-red-50 p-4 rounded-lg flex-grow min-h-[150px] mt-4 flex items-center justify-center">
+                            <p>Selecione as opções e clique para gerar seu treino expresso!</p>
+                        </div>
+                        <div id="quick-workout-loader" class="hidden min-h-[150px] flex-grow flex items-center justify-center mt-4">
+                            <div class="spinner" style="border-left-color: #dc2626;"></div>
+                        </div>
+                        <button id="generate-quick-workout-btn" class="mt-4 w-full bg-red-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-red-600 transition duration-300">
+                            ✨ Gerar Treino Expresso
+                        </button>
+                    </div>
+                </section>
+                
+                <section id="mobility" class="page hidden space-y-8">
+                    <div class="text-center mb-6">
+                        <h2 class="text-3xl font-bold text-blue-600">Mobilidade & Prevenção</h2>
+                        <p class="text-gray-600">Cuide do seu corpo com rotinas de mobilidade para melhorar a flexibilidade e prevenir lesões.</p>
+                    </div>
+                    <div class="bg-white p-6 rounded-xl shadow-md card-enter">
+                         <h2 class="text-2xl font-bold text-blue-600 mb-4 flex items-center">
+                            Sua Rotina de Mobilidade
+                             <button data-target-text="#mobility-routine-container div" class="tts-button hidden text-xl ml-4 text-gray-400 hover:text-blue-600">🔊</button>
+                        </h2>
+                        <label for="mobility-area-select" class="block text-sm font-medium text-gray-700">Qual área você quer focar hoje?</label>
+                        <select id="mobility-area-select" class="mt-1 block w-full p-2 border border-gray-300 rounded-md">
+                            <option value="Ombros e Pescoço">Ombros e Pescoço</option>
+                            <option value="Coluna Torácica">Coluna Torácica</option>
+                            <option value="Quadril e Lombar">Quadril e Lombar</option>
+                            <option value="Joelhos e Tornozelos">Joelhos e Tornozelos</option>
+                        </select>
+                        <div id="mobility-routine-container" class="text-gray-700 bg-blue-50 p-4 rounded-lg flex-grow min-h-[150px] mt-4 flex items-center justify-center">
+                            <p>Selecione uma área do corpo e clique no botão para gerar uma rotina de mobilidade.</p>
+                        </div>
+                        <div id="mobility-routine-loader" class="hidden min-h-[150px] flex-grow flex items-center justify-center mt-4">
+                            <div class="spinner" style="border-left-color: #2563eb;"></div>
+                        </div>
+                        <button id="generate-mobility-btn" class="mt-4 w-full bg-blue-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-600 transition duration-300">
+                            ✨ Gerar Rotina de Mobilidade
+                        </button>
+                    </div>
+                </section>
+
+                <section id="goals" class="page hidden space-y-8">
+                    <div class="text-center mb-6">
+                        <h2 class="text-3xl font-bold text-pink-600">Planejador de Metas Semanais</h2>
+                        <p class="text-gray-600">Defina sua intenção para a semana e deixe a IA te ajudar a criar um plano de ação.</p>
+                    </div>
+                    <div class="bg-white p-6 rounded-xl shadow-md card-enter">
+                         <h2 class="text-2xl font-bold text-pink-600 mb-4 flex items-center">
+                            Seu Plano de Ação
+                             <button data-target-text="#goal-plan-container div" class="tts-button hidden text-xl ml-4 text-gray-400 hover:text-pink-600">🔊</button>
+                        </h2>
+                        <label for="goal-input" class="block text-sm font-medium text-gray-700">Qual é o seu principal objetivo para esta semana?</label>
+                        <textarea id="goal-input" class="w-full p-2 mt-1 border border-gray-300 rounded-md h-24" placeholder="Ex: Quero aumentar minha carga no agachamento, ou, quero ter mais energia durante o dia..."></textarea>
+                        <div id="goal-plan-container" class="text-gray-700 bg-pink-50 p-4 rounded-lg flex-grow min-h-[150px] mt-4 flex items-center justify-center">
+                            <p>Escreva seu objetivo e clique no botão para criar seu plano de foco semanal!</p>
+                        </div>
+                        <div id="goal-plan-loader" class="hidden min-h-[150px] flex-grow flex items-center justify-center mt-4">
+                            <div class="spinner" style="border-left-color: #db2777;"></div>
+                        </div>
+                        <button id="generate-goal-plan-btn" class="mt-4 w-full bg-pink-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-pink-600 transition duration-300">
+                            ✨ Planejar Minha Semana
+                        </button>
+                    </div>
+                </section>
+
+                <section id="relaxation" class="page hidden space-y-8">
+                    <div class="text-center mb-6">
+                        <h2 class="text-3xl font-bold text-violet-600">Relaxamento & Mindfulness</h2>
+                        <p class="text-gray-600">Acalme sua mente e corpo com meditações guiadas por IA.</p>
+                    </div>
+                    <div class="bg-white p-6 rounded-xl shadow-md card-enter">
+                         <h2 class="text-2xl font-bold text-violet-600 mb-4 flex items-center">
+                            Sua Meditação Guiada
+                             <button data-target-text="#meditation-container div" class="tts-button hidden text-xl ml-4 text-gray-400 hover:text-violet-600">🔊</button>
+                        </h2>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label for="meditation-duration" class="block text-sm font-medium text-gray-700">Duração</label>
+                                <select id="meditation-duration" class="mt-1 block w-full p-2 border border-gray-300 rounded-md">
+                                    <option value="3 minutos">3 Minutos</option>
+                                    <option value="5 minutos" selected>5 Minutos</option>
+                                    <option value="10 minutos">10 Minutos</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="meditation-focus" class="block text-sm font-medium text-gray-700">Foco da Meditação</label>
+                                <select id="meditation-focus" class="mt-1 block w-full p-2 border border-gray-300 rounded-md">
+                                    <option value="Relaxamento Pós-Treino">Relaxamento Pós-Treino</option>
+                                    <option value="Foco e Clareza Mental">Foco e Clareza Mental</option>
+                                    <option value="Alívio do Estresse">Alívio do Estresse</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div id="meditation-container" class="text-gray-700 bg-violet-50 p-4 rounded-lg flex-grow min-h-[150px] mt-4 flex items-center justify-center">
+                            <p>Selecione as opções e clique para gerar sua meditação guiada.</p>
+                        </div>
+                        <div id="meditation-loader" class="hidden min-h-[150px] flex-grow flex items-center justify-center mt-4">
+                            <div class="spinner" style="border-left-color: #7c3aed;"></div>
+                        </div>
+                        <button id="generate-meditation-btn" class="mt-4 w-full bg-violet-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-violet-600 transition duration-300">
+                            ✨ Iniciar Meditação
+                        </button>
+                    </div>
+                </section>
+
+                <section id="chat" class="page hidden space-y-8">
+                    <div class="text-center mb-6">
+                        <h2 class="text-3xl font-bold text-gray-700">Tire suas Dúvidas com a IA</h2>
+                        <p class="text-gray-600">Seu assistente de fitness pessoal. Pergunte sobre treino, nutrição ou bem-estar.</p>
+                    </div>
+                    <div class="bg-white p-6 rounded-xl shadow-md card-enter">
+                        <div id="chat-history" class="h-96 overflow-y-auto p-4 bg-gray-50 rounded-lg mb-4 space-y-4">
+                            <div class="p-3 rounded-lg bg-sky-100 text-sky-800 self-start max-w-lg">
+                                <p class="font-semibold flex items-center">
+                                    Assistente de Fitness IA
+                                    <button data-target-text="p:last-of-type" class="tts-button text-lg ml-auto text-gray-400 hover:text-sky-600">🔊</button>
+                                </p>
+                                <p>Olá! Sou seu assistente de fitness. Como posso te ajudar a atingir seus objetivos hoje?</p>
+                            </div>
+                        </div>
+                        <div id="chat-loader" class="hidden my-4 flex items-center justify-center">
+                            <div class="spinner"></div>
+                        </div>
+                        <div class="flex gap-2">
+                            <input type="text" id="chat-input" placeholder="É melhor fazer cardio antes ou depois do treino?" class="flex-grow w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-orange-500 focus:border-orange-500 sm:text-sm">
+                            <button id="send-chat-btn" class="bg-orange-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-orange-600 transition duration-300">
+                                Enviar
+                            </button>
+                        </div>
+                    </div>
+                </section>
+            </main>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const userFormSection = document.getElementById('user-form-section');
+            const userDataHeader = document.getElementById('user-data-header');
+            const mainContent = document.getElementById('main-content');
+            const userForm = document.getElementById('user-form');
+            const editUserDataBtn = document.getElementById('edit-user-data');
+            
+            const navButtons = document.querySelectorAll('.nav-btn');
+            const pages = document.querySelectorAll('.page');
+            const detailToggles = document.querySelectorAll('.toggle-details');
+            const generateAiTipBtn = document.getElementById('generate-ai-tip');
+            const aiTipContainer = document.getElementById('ai-tip-container');
+            const aiTipLoader = document.getElementById('ai-tip-loader');
+            const explanationButtons = document.querySelectorAll('.generate-ai-explanation');
+            const variationButtons = document.querySelectorAll('.generate-ai-variation');
+            const formButtons = document.querySelectorAll('.generate-ai-form');
+            const mealButtons = document.querySelectorAll('.generate-meal-btn');
+            const warmupButtons = document.querySelectorAll('.generate-warmup-btn');
+            const playlistButton = document.getElementById('generate-playlist-btn');
+            const genreSelect = document.getElementById('genre-select');
+            const playlistContainer = document.getElementById('playlist-container');
+            const playlistLoader = document.getElementById('playlist-loader');
+            const goalAdjustButton = document.getElementById('generate-goal-adjust-btn');
+            const goalAdjustSelect = document.getElementById('goal-adjust-select');
+            const goalAdjustContainer = document.getElementById('goal-adjust-container');
+            const goalAdjustLoader = document.getElementById('goal-adjust-loader');
+            const analyzeProgressBtn = document.getElementById('analyze-progress-btn');
+            const progressNotes = document.getElementById('progress-notes');
+            const progressSummaryContainer = document.getElementById('progress-summary-container');
+            const progressSummaryLoader = document.getElementById('progress-summary-loader');
+            const generateDietBtn = document.getElementById('generate-ai-diet-plan-btn');
+            const dietGoalSelect = document.getElementById('diet-goal');
+            const dietRestrictionsInput = document.getElementById('diet-restrictions');
+            const dietMealsSelect = document.getElementById('diet-meals');
+            const aiDietPlanContainer = document.getElementById('ai-diet-plan-container');
+            const aiDietPlanLoader = document.getElementById('ai-diet-plan-loader');
+            const generateSupplementBtn = document.getElementById('generate-supplement-info-btn');
+            const supplementInput = document.getElementById('supplement-input');
+            const supplementInfoContainer = document.getElementById('supplement-info-container');
+            const supplementInfoLoader = document.getElementById('supplement-info-loader');
+            const generateQuickWorkoutBtn = document.getElementById('generate-quick-workout-btn');
+            const quickWorkoutTime = document.getElementById('quick-workout-time');
+            const quickWorkoutEquipment = document.getElementById('quick-workout-equipment');
+            const quickWorkoutContainer = document.getElementById('quick-workout-container');
+            const quickWorkoutLoader = document.getElementById('quick-workout-loader');
+            const sendChatBtn = document.getElementById('send-chat-btn');
+            const chatInput = document.getElementById('chat-input');
+            const chatHistory = document.getElementById('chat-history');
+            const chatLoader = document.getElementById('chat-loader');
+            const generateGoalPlanBtn = document.getElementById('generate-goal-plan-btn');
+            const goalInput = document.getElementById('goal-input');
+            const goalPlanContainer = document.getElementById('goal-plan-container');
+            const goalPlanLoader = document.getElementById('goal-plan-loader');
+            const generateMobilityBtn = document.getElementById('generate-mobility-btn');
+            const mobilityAreaSelect = document.getElementById('mobility-area-select');
+            const mobilityRoutineContainer = document.getElementById('mobility-routine-container');
+            const mobilityRoutineLoader = document.getElementById('mobility-routine-loader');
+            const analyzeMealBtn = document.getElementById('analyze-meal-btn');
+            const mealInput = document.getElementById('meal-input');
+            const mealAnalysisContainer = document.getElementById('meal-analysis-container');
+            const mealAnalysisLoader = document.getElementById('meal-analysis-loader');
+            const createRecipeBtn = document.getElementById('create-recipe-btn');
+            const ingredientsInput = document.getElementById('ingredients-input');
+            const recipeContainer = document.getElementById('recipe-container');
+            const recipeLoader = document.getElementById('recipe-loader');
+            const generateMeditationBtn = document.getElementById('generate-meditation-btn');
+            const meditationDuration = document.getElementById('meditation-duration');
+            const meditationFocus = document.getElementById('meditation-focus');
+            const meditationContainer = document.getElementById('meditation-container');
+            const meditationLoader = document.getElementById('meditation-loader');
+
+            const apiKey = ""; 
+            const textApiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+            const ttsApiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${apiKey}`;
+
+            async function callGemini(prompt, retries = 3, delay = 1000) {
+                try {
+                    const payload = {
+                        contents: [{ parts: [{ text: prompt }] }],
+                    };
+                    const response = await fetch(textApiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                    const result = await response.json();
+                    const candidate = result.candidates?.[0];
+                    if (candidate && candidate.content?.parts?.[0]?.text) {
+                        return candidate.content.parts[0].text;
+                    } else {
+                        throw new Error("Resposta da API inválida ou sem conteúdo.");
+                    }
+                } catch (error) {
+                    if (retries > 0) {
+                        await new Promise(res => setTimeout(res, delay));
+                        return callGemini(prompt, retries - 1, delay * 2);
+                    } else {
+                        console.error("Erro ao chamar a API Gemini:", error);
+                        return "Desculpe, não foi possível obter a informação no momento. Tente novamente mais tarde.";
+                    }
+                }
+            }
+            
+            function base64ToArrayBuffer(base64) {
+                const binaryString = window.atob(base64);
+                const len = binaryString.length;
+                const bytes = new Uint8Array(len);
+                for (let i = 0; i < len; i++) {
+                    bytes[i] = binaryString.charCodeAt(i);
+                }
+                return bytes.buffer;
+            }
+
+            function pcmToWav(pcmData, sampleRate) {
+                const numSamples = pcmData.length;
+                const numChannels = 1;
+                const bitsPerSample = 16;
+                const blockAlign = numChannels * bitsPerSample / 8;
+                const byteRate = sampleRate * blockAlign;
+                const dataSize = numSamples * blockAlign;
+                const buffer = new ArrayBuffer(44 + dataSize);
+                const view = new DataView(buffer);
+
+                function writeString(view, offset, string) {
+                    for (let i = 0; i < string.length; i++) {
+                        view.setUint8(offset + i, string.charCodeAt(i));
+                    }
+                }
+
+                let offset = 0;
+                writeString(view, offset, 'RIFF'); offset += 4;
+                view.setUint32(offset, 36 + dataSize, true); offset += 4;
+                writeString(view, offset, 'WAVE'); offset += 4;
+                writeString(view, offset, 'fmt '); offset += 4;
+                view.setUint32(offset, 16, true); offset += 4;
+                view.setUint16(offset, 1, true); offset += 2;
+                view.setUint16(offset, numChannels, true); offset += 2;
+                view.setUint32(offset, sampleRate, true); offset += 4;
+                view.setUint32(offset, byteRate, true); offset += 4;
+                view.setUint16(offset, blockAlign, true); offset += 2;
+                view.setUint16(offset, bitsPerSample, true); offset += 2;
+                writeString(view, offset, 'data'); offset += 4;
+                view.setUint32(offset, dataSize, true); offset += 4;
+                for (let i = 0; i < numSamples; i++, offset += 2) {
+                    view.setInt16(offset, pcmData[i], true);
+                }
+
+                return new Blob([view], { type: 'audio/wav' });
+            }
+
+            let currentAudio = null;
+            async function callGeminiTTS(text, buttonEl) {
+                if (buttonEl.disabled) return;
+                const originalText = buttonEl.textContent;
+                buttonEl.textContent = '...';
+                buttonEl.disabled = true;
+
+                if (currentAudio) {
+                    currentAudio.pause();
+                    currentAudio = null;
+                }
+
+                try {
+                    const payload = {
+                        contents: [{ parts: [{ text }] }],
+                        generationConfig: { responseModalities: ["AUDIO"] },
+                        model: "gemini-2.5-flash-preview-tts"
+                    };
+                    const response = await fetch(ttsApiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+
+                    const result = await response.json();
+                    const part = result?.candidates?.[0]?.content?.parts?.[0];
+                    const audioData = part?.inlineData?.data;
+                    const mimeType = part?.inlineData?.mimeType;
+
+                    if (audioData && mimeType && mimeType.startsWith("audio/")) {
+                        const sampleRate = parseInt(mimeType.match(/rate=(\d+)/)[1], 10);
+                        const pcmData = base64ToArrayBuffer(audioData);
+                        const pcm16 = new Int16Array(pcmData);
+                        const wavBlob = pcmToWav(pcm16, sampleRate);
+                        const audioUrl = URL.createObjectURL(wavBlob);
+                        currentAudio = new Audio(audioUrl);
+                        currentAudio.play();
+                        currentAudio.onended = () => { currentAudio = null; };
+                    } else {
+                        throw new Error("Resposta da API de áudio inválida.");
+                    }
+                } catch (error) {
+                    console.error("Erro ao gerar áudio:", error);
+                } finally {
+                    buttonEl.textContent = originalText;
+                    buttonEl.disabled = false;
+                }
+            }
+
+            document.body.addEventListener('click', (e) => {
+                if (e.target.classList.contains('tts-button')) {
+                    const targetSelector = e.target.dataset.targetText;
+                    const textContainer = e.target.closest('.card-enter, .rounded-lg').querySelector(targetSelector);
+                    if (textContainer && textContainer.textContent) {
+                         callGeminiTTS(textContainer.textContent, e.target);
+                    }
+                }
+            });
+            
+            function displayUserData(data) {
+                if (!data) return;
+                document.getElementById('display-name').textContent = data.name;
+                document.getElementById('display-age').textContent = data.age;
+                document.getElementById('display-gender').textContent = data.gender;
+                document.getElementById('display-email').textContent = data.email;
+                userDataHeader.classList.remove('hidden');
+            }
+
+            function showMainContent() {
+                userFormSection.classList.add('hidden');
+                mainContent.classList.remove('hidden');
+                showPage('overview');
+            }
+
+            function showUserForm() {
+                mainContent.classList.add('hidden');
+                userDataHeader.classList.add('hidden');
+                userFormSection.classList.remove('hidden');
+                
+                const userData = JSON.parse(localStorage.getItem('userData'));
+                if (userData) {
+                    document.getElementById('full-name').value = userData.name || '';
+                    document.getElementById('age').value = userData.age || '';
+                    document.getElementById('email').value = userData.email || '';
+                    if (userData.gender) {
+                        document.querySelector(`input[name="gender"][value="${userData.gender}"]`).checked = true;
+                    }
+                }
+            }
+            
+            function loadUser() {
+                const userData = JSON.parse(localStorage.getItem('userData'));
+                if (userData && userData.name) {
+                    displayUserData(userData);
+                    showMainContent();
+                } else {
+                    showUserForm();
+                }
+            }
+            
+            userForm.addEventListener('submit', (event) => {
+                event.preventDefault();
+                const formData = new FormData(userForm);
+                const userData = {
+                    name: formData.get('full-name'),
+                    age: formData.get('age'),
+                    gender: formData.get('gender'),
+                    email: formData.get('email'),
+                };
+                localStorage.setItem('userData', JSON.stringify(userData));
+                displayUserData(userData);
+                showMainContent();
+            });
+
+            editUserDataBtn.addEventListener('click', showUserForm);
+
+
+            function showPage(targetId) {
+                pages.forEach(page => {
+                    if (page.id === targetId) {
+                        page.classList.remove('hidden');
+                        page.querySelectorAll('.card-enter, .exercise-card').forEach((el, index) => {
+                            el.style.animationDelay = `${index * 100}ms`;
+                            el.classList.add('card-enter');
+                        });
+                    } else {
+                        page.classList.add('hidden');
+                         page.querySelectorAll('.card-enter, .exercise-card').forEach(el => {
+                            el.classList.remove('card-enter');
+                        });
+                    }
+                });
+
+                navButtons.forEach(btn => {
+                    if (btn.dataset.target === targetId) {
+                        btn.classList.add('active');
+                    } else {
+                        btn.classList.remove('active');
+                    }
+                });
+            }
+
+            navButtons.forEach(button => {
+                button.addEventListener('click', () => {
+                    showPage(button.dataset.target);
+                });
+            });
+
+            detailToggles.forEach(button => {
+                button.addEventListener('click', () => {
+                    const details = button.parentElement.nextElementSibling;
+                    const isHidden = details.classList.contains('hidden');
+                    details.classList.toggle('hidden');
+                    button.textContent = isHidden ? 'Ocultar Detalhes' : 'Ver Detalhes';
+                });
+            });
+            
+            generateAiTipBtn.addEventListener('click', async () => {
+                aiTipContainer.classList.add('hidden');
+                aiTipLoader.classList.remove('hidden');
+                generateAiTipBtn.disabled = true;
+
+                const prompt = "Aja como um personal trainer de classe mundial. Forneça uma dica de fitness concisa, encorajadora e prática para alguém cujo objetivo é o crescimento muscular e a manutenção corporal. A dica deve ser sobre um dos seguintes tópicos: nutrição, motivação, forma correta de exercício ou recuperação. Mantenha-a com menos de 70 palavras e em português do Brasil.";
+                
+                const tip = await callGemini(prompt);
+                aiTipContainer.innerHTML = `<p>${tip.replace(/\n/g, '<br>')}</p>`;
+                aiTipContainer.parentElement.querySelector('.tts-button').classList.remove('hidden');
+
+                aiTipLoader.classList.add('hidden');
+                aiTipContainer.classList.remove('hidden');
+                generateAiTipBtn.disabled = false;
+            });
+
+            explanationButtons.forEach(button => {
+                button.addEventListener('click', async (e) => {
+                    const buttonEl = e.target;
+                    const exerciseName = buttonEl.closest('.exercise-card').querySelector('h3').textContent.replace(/⭐.*\(Melhoria\)|[0-9. ]/g, '').trim();
+                    const container = buttonEl.closest('.flex-1').querySelector('.ai-explanation-container');
+                    
+                    if (buttonEl.disabled) return;
+                    container.innerHTML = '<div class="spinner mx-auto"></div>';
+                    buttonEl.disabled = true;
+
+                    const prompt = `Aja como um cinesiologista especialista. Forneça uma explicação detalhada para o exercício "${exerciseName}" em português do Brasil. Inclua os músculos primários e secundários trabalhados, erros comuns a evitar e uma dica profissional para maximizar a eficácia. Formate a resposta de forma clara usando parágrafos ou listas simples.`;
+
+                    const explanation = await callGemini(prompt);
+                    container.innerHTML = `<div class="text-sm bg-gray-100 p-3 rounded-md">${explanation.replace(/\n/g, '<br>')}</div>`;
+                    buttonEl.textContent = "Explicação Gerada";
+                });
+            });
+            
+            variationButtons.forEach(button => {
+                button.addEventListener('click', async (e) => {
+                    const buttonEl = e.target;
+                    const exerciseName = buttonEl.closest('.exercise-card').querySelector('h3').textContent.replace(/⭐.*\(Melhoria\)|[0-9. ]/g, '').trim();
+                    const container = buttonEl.closest('.flex-1').querySelector('.ai-variation-container');
+                    
+                    if (buttonEl.disabled) return;
+                    container.innerHTML = '<div class="spinner mx-auto"></div>';
+                    buttonEl.disabled = true;
+
+                    const prompt = `Aja como um personal trainer especialista. Para o exercício '${exerciseName}', sugira uma variação ou um exercício alternativo que trabalhe músculos similares. Explique brevemente por que essa variação é útil e para quem ela seria indicada. A resposta deve ser em português do Brasil.`;
+
+                    const variation = await callGemini(prompt);
+                    container.innerHTML = `<div class="text-sm bg-gray-100 p-3 rounded-md">${variation.replace(/\n/g, '<br>')}</div>`;
+                    buttonEl.textContent = "Variação Sugerida";
+                });
+            });
+
+            formButtons.forEach(button => {
+                button.addEventListener('click', async (e) => {
+                    const buttonEl = e.target;
+                    const exerciseName = buttonEl.closest('.exercise-card').querySelector('h3').textContent.replace(/⭐.*\(Melhoria\)|[0-9. ]/g, '').trim();
+                    const container = buttonEl.closest('.flex-1').querySelector('.ai-form-container');
+                    
+                    if (buttonEl.disabled) return;
+                    container.innerHTML = '<div class="spinner mx-auto"></div>';
+                    buttonEl.disabled = true;
+
+                    const prompt = `Aja como um instrutor de academia detalhista. Descreva em uma lista passo-a-passo como executar o exercício '${exerciseName}' com a forma perfeita. Foque em pontos-chave como a posição inicial, o movimento de subida (concêntrico), o movimento de descida (excêntrico) e a respiração. A resposta deve ser em português do Brasil.`;
+
+                    const formDescription = await callGemini(prompt);
+                    container.innerHTML = `<div class="text-sm bg-gray-100 p-3 rounded-md">${formDescription.replace(/\n/g, '<br>')}</div>`;
+                    buttonEl.textContent = "Forma Descrita";
+                });
+            });
+
+            mealButtons.forEach(button => {
+				button.addEventListener('click', async (e) => {
+					const buttonEl = e.target;
+                    const workoutDay = buttonEl.dataset.day;
+                    const dayId = buttonEl.closest('section').id;
+                    const container = document.getElementById(`meal-suggestion-container-${dayId}`);
+                    const loader = document.getElementById(`meal-loader-${dayId}`);
+
+                    container.classList.add('hidden');
+                    loader.classList.remove('hidden');
+                    buttonEl.disabled = true;
+
+					const prompt = `Aja como um nutricionista esportivo. Para um treino focado em membros ${workoutDay}s, sugira uma refeição pós-treino ideal para recuperação e crescimento muscular. Liste os ingredientes, um modo de preparo simples, e explique brevemente por que é uma boa escolha. A resposta deve ser em português do Brasil.`;
+
+					const mealSuggestion = await callGemini(prompt);
+					container.innerHTML = `<div class="text-sm">${mealSuggestion.replace(/\n/g, '<br>')}</div>`;
+                    container.parentElement.querySelector('.tts-button').classList.remove('hidden');
+                    
+                    loader.classList.add('hidden');
+                    container.classList.remove('hidden');
+                    buttonEl.disabled = false;
+				});
+			});
+
+            warmupButtons.forEach(button => {
+                button.addEventListener('click', async(e) => {
+                    const buttonEl = e.target;
+                    const workoutDay = buttonEl.dataset.day;
+                    const dayId = buttonEl.closest('section').id;
+                    const container = document.getElementById(`warmup-container-${dayId}`);
+                    const loader = document.getElementById(`warmup-loader-${dayId}`);
+
+                    container.classList.add('hidden');
+                    loader.classList.remove('hidden');
+                    buttonEl.disabled = true;
+
+                    const prompt = `Aja como um fisioterapeuta esportivo. Crie uma rotina de aquecimento de 5-10 minutos para um treino focado em membros ${workoutDay}s. Inclua 2-3 exercícios de mobilidade articular e 1-2 exercícios de ativação muscular, com instruções claras e breves em formato de lista. A resposta deve ser em português do Brasil.`;
+
+                    const warmupRoutine = await callGemini(prompt);
+                    container.innerHTML = `<div class="text-sm text-left">${warmupRoutine.replace(/\n/g, '<br>')}</div>`;
+                    container.parentElement.querySelector('.tts-button').classList.remove('hidden');
+
+                    loader.classList.add('hidden');
+                    container.classList.remove('hidden');
+                    buttonEl.disabled = false;
+                });
+            });
+
+            playlistButton.addEventListener('click', async () => {
+                const selectedGenre = genreSelect.value;
+                playlistContainer.classList.add('hidden');
+                playlistLoader.classList.remove('hidden');
+                playlistButton.disabled = true;
+
+                const prompt = `Aja como um DJ e curador de música para treinos. Crie uma lista de 5 músicas energéticas no gênero "${selectedGenre}" que sejam perfeitas para um treino de cardio. Liste apenas o nome da música e o artista, em formato de lista numerada. A resposta deve ser em português do Brasil.`;
+                
+                const playlist = await callGemini(prompt);
+                playlistContainer.innerHTML = `<div class="text-sm text-left w-full">${playlist.replace(/\n/g, '<br>')}</div>`;
+                playlistContainer.parentElement.querySelector('.tts-button').classList.remove('hidden');
+
+                playlistLoader.classList.add('hidden');
+                playlistContainer.classList.remove('hidden');
+                playlistButton.disabled = false;
+            });
+
+            goalAdjustButton.addEventListener('click', async () => {
+                const selectedGoal = goalAdjustSelect.value;
+                goalAdjustContainer.classList.add('hidden');
+                goalAdjustLoader.classList.remove('hidden');
+                goalAdjustButton.disabled = true;
+
+                const basePlanContext = "O plano de treino atual é de 3 dias: Dia 1 (Superior: Supino, Remada, Desenvolvimento, Puxada, Face Pull, Rosca, Tríceps), Dia 2 (Cardio: LISS ou HIIT), e Dia 3 (Inferior: Agachamento, Terra Romeno, Elevação Pélvica, Leg Press, Extensora, Flexora, Panturrilha).";
+
+                const prompt = `Aja como um personal trainer de elite em português do Brasil. Um usuário quer ajustar seu plano de treino para o objetivo de "${selectedGoal}". ${basePlanContext} Forneça 3-4 sugestões claras e acionáveis de como ajustar este plano. As sugestões devem focar em mudanças nas faixas de repetições, séries, tempo de descanso e na intensidade do cardio. A resposta deve ser concisa, em formato de lista e fácil de entender.`;
+                
+                const adjustmentSuggestion = await callGemini(prompt);
+                goalAdjustContainer.innerHTML = `<div class="text-sm text-left w-full">${adjustmentSuggestion.replace(/\n/g, '<br>')}</div>`;
+                goalAdjustContainer.parentElement.querySelector('.tts-button').classList.remove('hidden');
+
+                goalAdjustLoader.classList.add('hidden');
+                goalAdjustContainer.classList.remove('hidden');
+                goalAdjustButton.disabled = false;
+            });
+
+            analyzeProgressBtn.addEventListener('click', async () => {
+                const notes = progressNotes.value;
+                if (notes.trim() === "") {
+                    progressSummaryContainer.classList.remove('hidden');
+                    progressSummaryContainer.innerHTML = "<p>Por favor, escreva suas anotações antes de pedir a análise.</p>";
+                    return;
+                }
+
+                progressSummaryContainer.classList.add('hidden');
+                progressSummaryLoader.classList.remove('hidden');
+                analyzeProgressBtn.disabled = true;
+
+                const prompt = `Aja como um coach de fitness motivador e atencioso, em português do Brasil. O seguinte texto são as anotações semanais de um usuário sobre seu treino: "${notes}". Leia as anotações, crie um resumo positivo destacando as vitórias (como aumento de peso ou consistência), reconheça os desafios sem ser negativo, e termine com uma frase curta de motivação para a próxima semana. A resposta deve ser calorosa e encorajadora.`;
+                
+                const summary = await callGemini(prompt);
+                progressSummaryContainer.innerHTML = `<div class="text-sm text-left w-full">${summary.replace(/\n/g, '<br>')}</div>`;
+                progressSummaryContainer.parentElement.querySelector('.tts-button').classList.remove('hidden');
+
+                progressSummaryLoader.classList.add('hidden');
+                progressSummaryContainer.classList.remove('hidden');
+                analyzeProgressBtn.disabled = false;
+            });
+
+            generateDietBtn.addEventListener('click', async () => {
+                const goal = dietGoalSelect.value;
+                const restrictions = dietRestrictionsInput.value || 'Nenhuma';
+                const meals = dietMealsSelect.value;
+                const userData = JSON.parse(localStorage.getItem('userData')) || {};
+                const { age, gender } = userData;
+                
+                aiDietPlanContainer.classList.add('hidden');
+                aiDietPlanLoader.classList.remove('hidden');
+                generateDietBtn.disabled = true;
+
+                const prompt = `Aja como um nutricionista especialista em português do Brasil. Crie um plano alimentar detalhado de um dia para uma pessoa com idade de ${age || 'não informada'} anos e sexo ${gender || 'não informado'}. O objetivo principal é "${goal}". O plano deve ter ${meals} refeições. Leve em consideração as seguintes restrições/preferências: "${restrictions}". Para cada refeição, forneça duas opções de pratos com ingredientes comuns no Brasil. A resposta deve ser bem estruturada, clara e com uma linguagem encorajadora.`;
+
+                const dietPlan = await callGemini(prompt);
+                aiDietPlanContainer.innerHTML = `<div class="text-sm text-left w-full">${dietPlan.replace(/\n/g, '<br>')}</div>`;
+                aiDietPlanContainer.parentElement.querySelector('.tts-button').classList.remove('hidden');
+
+                aiDietPlanLoader.classList.add('hidden');
+                aiDietPlanContainer.classList.remove('hidden');
+                generateDietBtn.disabled = false;
+            });
+
+            generateSupplementBtn.addEventListener('click', async () => {
+                const supplement = supplementInput.value;
+                 if (supplement.trim() === "") {
+                    supplementInfoContainer.innerHTML = "<p>Por favor, digite o nome de um suplemento.</p>";
+                    return;
+                }
+
+                supplementInfoContainer.classList.add('hidden');
+                supplementInfoLoader.classList.remove('hidden');
+                generateSupplementBtn.disabled = true;
+
+                const prompt = `Aja como um nutricionista esportivo em português do Brasil. Um usuário quer saber sobre o suplemento: "${supplement}". Forneça uma explicação clara e concisa incluindo: 1. O que é e sua função principal. 2. Benefícios comuns para quem treina. 3. Conselhos gerais sobre como usar. 4. Um aviso claro e em negrito para consultar um médico ou nutricionista antes de tomar qualquer suplemento. Formate a resposta com títulos para cada seção.`;
+
+                const supplementInfo = await callGemini(prompt);
+                supplementInfoContainer.innerHTML = `<div class="text-sm text-left w-full">${supplementInfo.replace(/\n/g, '<br>')}</div>`;
+                supplementInfoContainer.parentElement.querySelector('.tts-button').classList.remove('hidden');
+
+                supplementInfoLoader.classList.add('hidden');
+                supplementInfoContainer.classList.remove('hidden');
+                generateSupplementBtn.disabled = false;
+            });
+
+            generateQuickWorkoutBtn.addEventListener('click', async () => {
+                const time = quickWorkoutTime.value;
+                const equipment = quickWorkoutEquipment.value;
+
+                quickWorkoutContainer.classList.add('hidden');
+                quickWorkoutLoader.classList.remove('hidden');
+                generateQuickWorkoutBtn.disabled = true;
+
+                const prompt = `Aja como um personal trainer criativo e eficiente em português do Brasil. Crie um treino rápido e intenso ("Treino Expresso") com duração de ${time}, usando ${equipment}. O treino deve ser full-body (corpo inteiro). Estruture a resposta com: 1. Um breve aquecimento. 2. O circuito de exercícios (nome do exercício, séries/repetições ou tempo). 3. Um breve desaquecimento. A resposta deve ser motivadora e fácil de seguir.`;
+                
+                const workout = await callGemini(prompt);
+                quickWorkoutContainer.innerHTML = `<div class="text-sm text-left w-full">${workout.replace(/\n/g, '<br>')}</div>`;
+                quickWorkoutContainer.parentElement.querySelector('.tts-button').classList.remove('hidden');
+
+                quickWorkoutLoader.classList.add('hidden');
+                quickWorkoutContainer.classList.remove('hidden');
+                generateQuickWorkoutBtn.disabled = false;
+            });
+            
+            generateGoalPlanBtn.addEventListener('click', async () => {
+                const goal = goalInput.value;
+                if(goal.trim() === "") {
+                    goalPlanContainer.innerHTML = `<p>Por favor, escreva seu objetivo para a semana.</p>`;
+                    return;
+                }
+                
+                goalPlanContainer.classList.add('hidden');
+                goalPlanLoader.classList.remove('hidden');
+                generateGoalPlanBtn.disabled = true;
+
+                const prompt = `Aja como um coach de fitness e mentalidade de alta performance, em português do Brasil. Um usuário definiu o seguinte objetivo para a semana: "${goal}". Crie um plano de ação com 3 a 4 passos práticos para ele focar durante a semana. Inclua dicas sobre mentalidade, foco durante os treinos, e ações de recuperação ou nutrição que suportem esse objetivo. A resposta deve ser encorajadora e em formato de lista.`;
+
+                const plan = await callGemini(prompt);
+                goalPlanContainer.innerHTML = `<div class="text-sm text-left w-full">${plan.replace(/\n/g, '<br>')}</div>`;
+                goalPlanContainer.parentElement.querySelector('.tts-button').classList.remove('hidden');
+
+                goalPlanLoader.classList.add('hidden');
+                goalPlanContainer.classList.remove('hidden');
+                generateGoalPlanBtn.disabled = false;
+            });
+
+
+            async function handleChatSend() {
+                const question = chatInput.value;
+                if (question.trim() === "") return;
+
+                chatInput.value = "";
+                
+                const userMessageDiv = document.createElement('div');
+                userMessageDiv.className = 'p-3 rounded-lg bg-gray-200 self-end max-w-lg';
+                userMessageDiv.innerHTML = `<p class="font-semibold">Você</p><p>${question}</p>`;
+                chatHistory.appendChild(userMessageDiv);
+                chatHistory.scrollTop = chatHistory.scrollHeight;
+
+                chatLoader.classList.remove('hidden');
+                sendChatBtn.disabled = true;
+
+                const prompt = `Aja como um personal trainer e nutricionista experiente. Responda à seguinte pergunta de fitness de forma clara, concisa e segura, em português do Brasil: "${question}". Sempre inclua um aviso para consultar um profissional de saúde antes de fazer mudanças significativas.`;
+
+                const response = await callGemini(prompt);
+                
+                const aiMessageDiv = document.createElement('div');
+                aiMessageDiv.className = 'p-3 rounded-lg bg-sky-100 text-sky-800 self-start max-w-lg';
+                aiMessageDiv.innerHTML = `<p class="font-semibold flex items-center">
+                                    Assistente de Fitness IA
+                                    <button data-target-text="p:last-of-type" class="tts-button text-lg ml-auto text-gray-400 hover:text-sky-600">🔊</button>
+                                </p><p>${response.replace(/\n/g, '<br>')}</p>`;
+                chatHistory.appendChild(aiMessageDiv);
+                chatHistory.scrollTop = chatHistory.scrollHeight;
+
+                chatLoader.classList.add('hidden');
+                sendChatBtn.disabled = false;
+            }
+
+            sendChatBtn.addEventListener('click', handleChatSend);
+            chatInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    handleChatSend();
+                }
+            });
+
+            generateMobilityBtn.addEventListener('click', async () => {
+                const area = mobilityAreaSelect.value;
+                mobilityRoutineContainer.classList.add('hidden');
+                mobilityRoutineLoader.classList.remove('hidden');
+                generateMobilityBtn.disabled = true;
+
+                const prompt = `Aja como um fisioterapeuta esportivo em português do Brasil. Um usuário quer melhorar a mobilidade na área de '${area}'. Crie uma rotina de mobilidade de 5 a 10 minutos com 3-4 exercícios. Para cada exercício, descreva o movimento de forma clara e por que ele é benéfico para a área selecionada. Formate como uma lista numerada.`;
+                
+                const routine = await callGemini(prompt);
+                mobilityRoutineContainer.innerHTML = `<div class="text-sm text-left w-full">${routine.replace(/\n/g, '<br>')}</div>`;
+                mobilityRoutineContainer.parentElement.querySelector('.tts-button').classList.remove('hidden');
+
+                mobilityRoutineLoader.classList.add('hidden');
+                mobilityRoutineContainer.classList.remove('hidden');
+                generateMobilityBtn.disabled = false;
+            });
+
+            analyzeMealBtn.addEventListener('click', async () => {
+                const meal = mealInput.value;
+                if(meal.trim() === '') {
+                    mealAnalysisContainer.innerHTML = `<p>Por favor, descreva sua refeição.</p>`;
+                    return;
+                }
+
+                mealAnalysisContainer.classList.add('hidden');
+                mealAnalysisLoader.classList.remove('hidden');
+                analyzeMealBtn.disabled = true;
+
+                const prompt = `Aja como um nutricionista assistente em português do Brasil. Analise a seguinte refeição descrita por um usuário: "${meal}". Forneça uma estimativa aproximada de calorias, proteínas, carboidratos e gorduras. Apresente os resultados de forma clara em uma lista. Adicione um aviso importante e em negrito de que estes são valores estimados e para dados precisos, o usuário deve usar ferramentas adequadas ou consultar um nutricionista.`;
+                
+                const analysis = await callGemini(prompt);
+                mealAnalysisContainer.innerHTML = `<div class="text-sm text-left w-full">${analysis.replace(/\n/g, '<br>')}</div>`;
+                mealAnalysisContainer.parentElement.querySelector('.tts-button').classList.remove('hidden');
+
+                mealAnalysisLoader.classList.add('hidden');
+                mealAnalysisContainer.classList.remove('hidden');
+                analyzeMealBtn.disabled = false;
+            });
+
+            createRecipeBtn.addEventListener('click', async () => {
+                const ingredients = ingredientsInput.value;
+                if(ingredients.trim() === '') {
+                    recipeContainer.innerHTML = `<p>Por favor, liste os ingredientes que você tem.</p>`;
+                    return;
+                }
+
+                recipeContainer.classList.add('hidden');
+                recipeLoader.classList.remove('hidden');
+                createRecipeBtn.disabled = true;
+
+                const prompt = `Aja como um chef de cozinha focado em nutrição fitness, em português do Brasil. Um usuário tem os seguintes ingredientes disponíveis: "${ingredients}". Crie uma receita saudável, saborosa e rica em proteínas usando principalmente esses ingredientes. A receita deve incluir um nome criativo, a lista de ingredientes (indicando se algo a mais for necessário), e um passo a passo claro para o preparo. A receita deve ser apropriada para alguém com objetivos de ganho de massa muscular.`;
+                
+                const recipe = await callGemini(prompt);
+                recipeContainer.innerHTML = `<div class="text-sm text-left w-full">${recipe.replace(/\n/g, '<br>')}</div>`;
+                recipeContainer.parentElement.querySelector('.tts-button').classList.remove('hidden');
+
+                recipeLoader.classList.add('hidden');
+                recipeContainer.classList.remove('hidden');
+                createRecipeBtn.disabled = false;
+            });
+
+            generateMeditationBtn.addEventListener('click', async () => {
+                const duration = meditationDuration.value;
+                const focus = meditationFocus.value;
+
+                meditationContainer.classList.add('hidden');
+                meditationLoader.classList.remove('hidden');
+                generateMeditationBtn.disabled = true;
+
+                const prompt = `Aja como um instrutor de mindfulness e meditação em português do Brasil. Crie um roteiro de meditação guiada de ${duration} com foco em ${focus}. O roteiro deve ser calmante, fácil de seguir, com pausas indicadas (ex: [pausa]), e apropriado para alguém que acabou de terminar um treino ou está buscando um momento de tranquilidade. Comece com uma introdução suave e termine com uma conclusão positiva.`;
+                
+                const script = await callGemini(prompt);
+                meditationContainer.innerHTML = `<div class="text-sm text-left w-full">${script.replace(/\n/g, '<br>')}</div>`;
+                const ttsButton = meditationContainer.parentElement.querySelector('.tts-button');
+                ttsButton.classList.remove('hidden');
+                
+                meditationLoader.classList.add('hidden');
+                meditationContainer.classList.remove('hidden');
+                generateMeditationBtn.disabled = false;
+
+                // Auto-play the meditation script
+                callGeminiTTS(script, ttsButton);
+            });
+
+            loadUser();
+
+            const ctx = document.getElementById('muscleFocusChart').getContext('2d');
+            const muscleFocusChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Peito', 'Costas', 'Ombros', 'Quadríceps', 'Posteriores & Glúteos', 'Bíceps', 'Tríceps', 'Panturrilhas'],
+                    datasets: [{
+                        label: 'Nº de Exercícios',
+                        data: [1, 3, 2, 2, 3, 1, 1, 1],
+                        backgroundColor: [
+                            '#F9A8D4', '#6EE7B7', '#93C5FD', '#FBBF24',
+                            '#A78BFA', '#F87171', '#60A5FA', '#C084FC'
+                        ],
+                        borderColor: '#FDFBF8',
+                        borderWidth: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                             labels: {
+                                color: '#4A4A4A',
+                                font: {
+                                    family: "'Inter', sans-serif"
+                                }
+                            }
+                        },
+                        tooltip: {
+                             callbacks: {
+                                label: function(context) {
+                                    let label = context.label || '';
+                                    if (label) {
+                                        label += ': ';
+                                    }
+                                    if (context.parsed !== null) {
+                                        label += context.parsed + (context.parsed === 1 ? ' exercício' : ' exercícios');
+                                    }
+                                    return label;
+                                }
+                            }
+                        }
+                    },
+                    cutout: '60%'
+                }
+            });
+        });
+    </script>
+</body>
+</html>
+
