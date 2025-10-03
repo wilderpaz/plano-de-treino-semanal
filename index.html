@@ -57,16 +57,29 @@
     </footer>
 
     <!-- Script de Inicialização e Lógica (Todo o JS aqui) -->
-    <script type="module">
-        // Importações do Firebase
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-        
-        // Variáveis Globais de Ambiente (serão fornecidas pelo ambiente Canvas)
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
-        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+       <script type="module">
+      // Import the functions you need from the SDKs you need
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-app.js";
+      import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-analytics.js";
+      // TODO: Add SDKs for Firebase products that you want to use
+      // https://firebase.google.com/docs/web/setup#available-libraries
+    
+      // Your web app's Firebase configuration
+      // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+      const firebaseConfig = {
+        apiKey: "AIzaSyAnxJqVhEnvdAMcmDTNjAU2G9MHxmAVNbY",
+        authDomain: "plano-de-treino-semanal.firebaseapp.com",
+        projectId: "plano-de-treino-semanal",
+        storageBucket: "plano-de-treino-semanal.firebasestorage.app",
+        messagingSenderId: "70819701777",
+        appId: "1:70819701777:web:c6ebc648e91c018d787db0",
+        measurementId: "G-ETJ9R7HHGF"
+      };
+    
+      // Initialize Firebase
+      const app = initializeApp(firebaseConfig);
+      const analytics = getAnalytics(app);
+
 
         // Configurações da API Gemini
         const GEMINI_API_KEY = "AIzaSyBeJaGLve3Bg43aoDe4izcTnd5Wtqf-4ao";
