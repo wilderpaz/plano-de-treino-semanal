@@ -6,8 +6,7 @@
     <title>Plano de Treino Interativo com IA</title>
     <!-- Carrega Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Carrega Lucide Icons (opcional, mas bom para a estética) -->
-    <!-- Importa a versão UMD para acesso global via 'lucide' -->
+    <!-- Carrega Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
     <style>
         /* Estilo customizado para a barra de rolagem */
@@ -23,14 +22,12 @@
         }
     </style>
 </head>
-<!-- A classe da cor de fundo/texto é definida dinamicamente pelo JS -->
 <body class="min-h-screen p-4 md:p-8 transition-colors duration-300">
 
     <!-- Cabeçalho -->
     <header class="mb-8 border-b pb-4 transition-colors duration-300" id="mainHeader">
         <div class="flex justify-between items-start">
             <div class="space-y-1">
-                <!-- Espaço para Logo e Título Principal -->
                 <div id="logoPlaceholder" class="flex items-center space-x-3">
                     <i data-lucide="dumbbell" class="w-10 h-10 text-indigo-500"></i> 
                     <h1 class="text-4xl font-extrabold tracking-tight" id="mainTitle">Plano de Treino IA</h1>
@@ -74,16 +71,20 @@
         // Importações do Firebase
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, onSnapshot, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         
+        // Ativar logging do Firestore para diagnóstico
+        setLogLevel('Debug');
+
         // Variáveis Globais de Ambiente (serão fornecidas pelo ambiente Canvas)
-        // OBS: Se estiver a rodar fora do ambiente Canvas, defina estas variáveis no seu código local.
         const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
         const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
         // Configurações da API Gemini
-        const GEMINI_API_KEY = "AIzaSyBeJaGLve3Bg43aoDe4izcTnd5Wtqf-4ao"; // CHAVE ATUALIZADA
+        // Verifica se há uma chave definida no ambiente externo (por exemplo, injetada por um script de build).
+        const externalGeminiKey = typeof __gemini_api_key_override !== 'undefined' ? __gemini_api_key_override : "";
+        const GEMINI_API_KEY = externalGeminiKey; 
         const GEMINI_MODEL = "gemini-2.5-flash-preview-05-20";
         const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
 
@@ -92,10 +93,80 @@
         let auth = null;
         let currentUserId = null;
         let profile = {};
-        let currentPage = 'overview';
+        let currentPage = 'overview'; // Inicia na Visão Geral
         let authReady = false; // Flag para esperar pela autenticação
         let currentTheme = 'dark'; // Variável de estado para o tema
 
+        // --- Configurações de Páginas e Treino ---
+        
+        const PAGES = {
+            OVERVIEW: 'overview',
+            DAY1: 'day1',
+            DAY2: 'day2',
+            DAY3: 'day3',
+            NUTRITION: 'nutrition',
+            AI_TOOLS: 'aitools',
+            FAQ: 'faq'
+        };
+
+        // Templates de Treino Fixo (mapeados para os 3 primeiros dias selecionados)
+        const Day1Upper = {
+            title: "Treino 1: Parte Superior",
+            icon: 'dumbbell',
+            color: 'bg-indigo-600',
+            exercises: [
+                { name: '1. Supino Reto', setsReps: '3 séries de 8-12 repetições', function: 'Principal construtor de massa para o peitoral.' },
+                { name: '2. Remada Curvada', setsReps: '3 séries de 8-12 repetições', function: 'Excelente para a densidade e força das costas.' },
+                { name: '3. Desenvolvimento de Ombros', setsReps: '3 séries de 10-12 repetições', function: 'Foco principal na porção medial e anterior dos ombros.' },
+                { name: '4. Puxada Vertical', setsReps: '3 séries até a falha (ou 8-12 reps)', function: 'Foco na "largura" das costas.' },
+                { name: '5. Rosca Direta', setsReps: '3 séries de 10-12 repetições', function: 'Isolamento do bíceps.' },
+                { name: '6. Tríceps Pulley', setsReps: '3 séries de 10-12 repetições', function: 'Isolamento do tríceps.' },
+            ]
+        };
+        
+        const Day2Cardio = {
+            title: "Treino 2: Cardio e Recuperação Ativa",
+            icon: 'heart',
+            color: 'bg-green-600',
+            content: `
+                <div class="space-y-4">
+                    <h2 class="text-2xl font-extrabold text-indigo-400">Opção 1: Cardio Contínuo (LISS)</h2>
+                    <ul class="list-disc list-inside ml-4 space-y-2 text-gray-400">
+                        <li><span class="font-semibold text-white">Corrida:</span> 30-45 minutos em intensidade moderada.</li>
+                        <li><span class="font-semibold text-white">Bicicleta:</span> 45-60 minutos em terreno variado.</li>
+                    </ul>
+                    <h2 class="text-2xl font-extrabold text-indigo-400 mt-6">Opção 2: HIIT (Alternativa)</h2>
+                    <ul class="list-disc list-inside ml-4 space-y-2 text-gray-400">
+                        <li><span class="font-semibold text-white">Exemplo na esteira (20 min):</span> 5 min aquecimento, 8x (1 min forte + 1 min caminhada), 4 min desaquecimento.</li>
+                    </ul>
+                </div>
+            `
+        };
+
+        const Day3Lower = {
+            title: "Treino 3: Parte Inferior",
+            icon: 'dumbbell',
+            color: 'bg-red-600',
+            exercises: [
+                { name: '1. Agachamento Livre', setsReps: '3 séries de 8-12 repetições', function: 'O principal exercício para pernas, trabalhando quadríceps, glúteos e posteriores.' },
+                { name: '2. Levantamento Terra Romeno', setsReps: '3 séries de 8-12 repetições', function: 'Foca na cadeia posterior (posteriores e glúteos).' },
+                { name: '3. Elevação Pélvica (Hip Thrust)', setsReps: '3 séries de 10-15 repetições', function: 'Melhor exercício para isolar e construir os glúteos.' },
+                { name: '4. Leg Press', setsReps: '3 séries de 10-12 repetições', function: 'Permite adicionar volume para o quadríceps.' },
+                { name: '5. Cadeira Extensora', setsReps: '3 séries de 10-12 repetições', function: 'Isola completamente o quadríceps.' },
+                { name: '6. Mesa Flexora', setsReps: '3 séries de 10-12 repetições', function: 'Isola os posteriores de coxa (isquiotibiais).' },
+            ]
+        };
+
+        // Dados fixos para o Gráfico de Foco Muscular (plano 3 dias fixo)
+        const MUSCLE_FOCUS_DATA = {
+            'Peito': 25,
+            'Costas': 25,
+            'Quadríceps': 20,
+            'Glúteos/Post.': 15,
+            'Ombros': 10,
+            'Braços/Outros': 5
+        };
+        
         // --- Funções de Utilitário e Tema ---
         
         const getThemeColorClass = (element, state) => {
@@ -113,7 +184,9 @@
                 case 'card-bg':
                     return dark ? 'bg-gray-800 shadow-xl' : 'bg-white shadow-md border border-gray-200';
                 case 'nav-bg':
-                    return state === 'active' ? 'bg-indigo-600 text-white shadow-lg' : (dark ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-200 text-gray-700 hover:bg-gray-300');
+                    if (state === 'active') return 'bg-indigo-600 text-white shadow-lg';
+                    if (state === 'disabled') return dark ? 'bg-gray-700/50 text-gray-500 opacity-50 cursor-not-allowed' : 'bg-gray-200/50 text-gray-400 opacity-50 cursor-not-allowed';
+                    return dark ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-200 text-gray-700 hover:bg-gray-300';
                 case 'text-primary':
                     return dark ? 'text-white' : 'text-gray-900';
                 case 'text-secondary':
@@ -165,8 +238,11 @@
             applyTheme(newTheme);
         };
         
-        // Finaliza Funções de Utilitário
-        
+        /**
+         * Verifica se o perfil básico está salvo e se dias de treino foram selecionados.
+         */
+        const isAppUnlocked = () => profile && profile.name && profile.name.trim() !== '' && (profile.trainingDays && profile.trainingDays.length > 0);
+
         /**
          * Renderiza o indicador de loading.
          * @param {string} message 
@@ -174,16 +250,13 @@
          */
         const LoadingIndicator = (message = "A IA está trabalhando...") => `
             <div class="flex items-center justify-center p-4 ${getThemeColorClass('code-bg')} rounded-lg animate-pulse">
-                <svg class="w-5 h-5 mr-2 text-white animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                <svg class="w-5 h-5 mr-2 text-indigo-400 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
                 <span class="text-white text-sm">${message}</span>
             </div>
         `;
 
         /**
          * Renderiza o box de resultado da IA.
-         * @param {string} title 
-         * @param {string} content 
-         * @returns {string} HTML do box de resultado.
          */
         const AiResultBox = (title, content) => `
             <div class="mt-4 p-5 ${getThemeColorClass('card-bg')} rounded-xl shadow-lg border border-indigo-600">
@@ -198,7 +271,8 @@
         `;
 
         /**
-         * Função genérica para chamar a API Gemini com retentativas.
+         * Função genérica para chamar a API Gemini com retentativas. (funções fetchWithRetry, fetchTTS, base64ToArrayBuffer, writeString, pcmToWav, playAudio mantidas)
+         * ... (Para simplificar, as funções de API foram mantidas no script original)
          */
         const fetchWithRetry = async (userQuery, systemPrompt, schema = null, maxRetries = 3) => {
             let lastError = null;
@@ -259,17 +333,12 @@
             throw new Error(`Falha após ${maxRetries} tentativas: ${lastError?.message || 'Erro desconhecido.'}`);
         };
 
-        /**
-         * Utility function to safely recreate Lucide icons after DOM updates
-         * Uses the globally available 'lucide' object provided by the UMD script.
-         */
         const recreateLucideIcons = (sizeAttrs) => {
             if (typeof lucide !== 'undefined' && lucide.createIcons) {
                 lucide.createIcons(sizeAttrs);
             }
         };
 
-        // --- TTS UTILITY FUNCTIONS (conversão de PCM para WAV) ---
         const base64ToArrayBuffer = (base64) => {
             const binaryString = atob(base64);
             const len = binaryString.length;
@@ -297,32 +366,19 @@
             
             // RIFF identifier 'RIFF'
             writeString(view, 0, 'RIFF');
-            // File size (data length + 36)
             view.setUint32(4, 36 + pcm16.length * 2, true);
-            // RIFF type 'WAVE'
             writeString(view, 8, 'WAVE');
-            // format chunk identifier 'fmt '
             writeString(view, 12, 'fmt ');
-            // format chunk length 16
             view.setUint32(16, 16, true);
-            // sample format (1 for PCM)
             view.setUint16(20, 1, true);
-            // number of channels
             view.setUint16(22, numChannels, true);
-            // sample rate
             view.setUint32(24, sampleRate, true);
-            // byte rate (sampleRate * numChannels * bitsPerSample/8)
             view.setUint32(28, byteRate, true);
-            // block align (numChannels * bitsPerSample/8)
             view.setUint16(32, blockAlign, true);
-            // bits per sample
             view.setUint16(34, bitsPerSample, true);
-            // data chunk identifier 'data'
             writeString(view, 36, 'data');
-            // data chunk length (number of samples * numChannels * bitsPerSample/8)
             view.setUint32(40, pcm16.length * 2, true);
             
-            // Write PCM data
             let offset = 44;
             for (let i = 0; i < pcm16.length; i++, offset += 2) {
                 view.setInt16(offset, pcm16[i], true);
@@ -336,11 +392,8 @@
             audio.play().catch(e => console.error("Erro ao reproduzir áudio:", e));
         };
 
-        /**
-         * Função dedicada para chamada da API Gemini TTS.
-         */
         const fetchTTS = async (text, button, originalText) => {
-            const VOICE = "Kore"; // Voz firme e clara
+            const VOICE = "Kore"; 
             
             const payload = {
                 contents: [{ parts: [{ text: text }] }],
@@ -353,7 +406,6 @@
                 model: "gemini-2.5-flash-preview-tts"
             };
 
-            // Remove a instrução de carregamento antes de redefinir o botão.
             const resetButtonStyle = (label, icon, colorClass) => {
                 button.innerHTML = `<i data-lucide="${icon}" class="w-5 h-5 mr-2"></i> ${label}`;
                 button.disabled = false;
@@ -410,29 +462,7 @@
         };
 
 
-        // --- Funções de Renderização e Lógica (Conversão de Componentes React para Vanilla JS) ---
-
-        const PAGES = {
-            OVERVIEW: 'overview',
-            DAY1: 'day1',
-            DAY2: 'day2',
-            DAY3: 'day3',
-            NUTRITION: 'nutrition',
-            AI_TOOLS: 'aitools',
-            FAQ: 'faq'
-        };
-
-        const NAV_ITEMS = [
-            { id: PAGES.OVERVIEW, label: 'Visão Geral', icon: 'target' },
-            { id: PAGES.DAY1, label: 'Dia 1: Superior', icon: 'dumbbell' },
-            { id: PAGES.DAY2, label: 'Dia 2: Cardio', icon: 'heart' },
-            { id: PAGES.DAY3, label: 'Dia 3: Inferior', icon: 'dumbbell' },
-            { id: PAGES.NUTRITION, label: 'Nutrição', icon: 'utensils' },
-            { id: PAGES.AI_TOOLS, label: 'Ferramentas IA', icon: 'sparkles' },
-            { id: PAGES.FAQ, label: 'Assistente IA', icon: 'message-square' },
-        ];
-        
-        // --- 1. Lógica do Perfil do Usuário (REESTRUTURADA PARA FIREBASE) ---
+        // --- Funções de Renderização e Lógica ---
 
         const handleProfileSave = async (e) => {
             e.preventDefault();
@@ -443,11 +473,30 @@
                 return;
             }
 
+            // Coleta os dias selecionados
+            const selectedDays = Array.from(form.querySelectorAll('input[name="trainingDays"]:checked')).map(cb => cb.value);
+
+            if (selectedDays.length === 0) {
+                 // Substituído 'alert' por console.error e tratamento visual ou modal
+                 console.error('Por favor, selecione pelo menos um dia para treino.');
+                 // Em um ambiente real, você usaria um modal/mensagem de erro na UI aqui.
+                 // Para este ambiente, apenas retornamos.
+                 return;
+            }
+
+            // CORREÇÃO: Acessa os valores dos campos de forma defensiva usando optional chaining (?.),
+            // prevenindo o erro de 'reading value of undefined' se o elemento não for encontrado.
+            const nameValue = form.name?.value || '';
+            const ageValue = form.age?.value || '';
+            const genderValue = form.gender?.value || '';
+            const emailValue = form.email?.value || '';
+
             const profileData = {
-                name: form.name.value,
-                age: form.age.value ? parseInt(form.age.value) : null,
-                gender: form.gender.value,
-                email: form.email.value,
+                name: nameValue,
+                age: ageValue ? parseInt(ageValue) : null,
+                gender: genderValue,
+                email: emailValue,
+                trainingDays: selectedDays, // Novo campo
                 updatedAt: new Date().toISOString()
             };
 
@@ -465,6 +514,9 @@
                 saveButton.classList.remove('bg-indigo-600');
                 saveButton.classList.add('bg-green-600');
                 
+                // Força a navegação para Visão Geral após salvar e desbloquear
+                currentPage = PAGES.OVERVIEW;
+
                 setTimeout(() => {
                     saveButton.innerHTML = '<i data-lucide="sparkles" class="w-5 h-5 mr-2"></i> Salvar Perfil e Iniciar';
                     saveButton.classList.remove('bg-green-600');
@@ -481,45 +533,287 @@
             }
         };
 
-        const renderProfileForm = () => `
-            <form id="profileForm" class="space-y-4 p-6 ${getThemeColorClass('card-bg')} rounded-xl shadow-2xl">
-                <h2 class="text-2xl font-extrabold text-indigo-400 mb-4">Suas Informações</h2>
-                <p class="${getThemeColorClass('text-secondary')} mb-6">Preencha seus dados para personalizar a experiência. (Salvo no Firestore).</p>
+        const renderProfileForm = () => {
+            const dayCodes = ['SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SAB', 'DOM'];
+            const dayNamesFull = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'];
+            const selectedDays = profile.trainingDays || [];
+            const inputBgClass = getThemeColorClass('input-bg');
+            const textSecondary = getThemeColorClass('text-secondary');
 
-                <label class="block">
-                    <span class="text-sm font-medium ${getThemeColorClass('text-secondary')}">Nome Completo</span>
-                    <input type="text" name="name" value="${profile.name || ''}" class="mt-1 block w-full px-4 py-2 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 ${getThemeColorClass('input-bg')}" placeholder="Seu nome" />
-                </label>
+            return `
+                <form id="profileForm" class="space-y-4 p-6 ${getThemeColorClass('card-bg')} rounded-xl shadow-2xl">
+                    <h2 class="text-2xl font-extrabold text-indigo-400 mb-4">Suas Informações e Plano Semanal</h2>
+                    <p class="${textSecondary} mb-6">Preencha seus dados e escolha seus dias de treino. (Salvo no Firestore).</p>
 
-                <div class="grid grid-cols-2 gap-4">
                     <label class="block">
-                        <span class="text-sm font-medium ${getThemeColorClass('text-secondary')}">Idade</span>
-                        <input type="number" name="age" value="${profile.age || ''}" class="mt-1 block w-full px-4 py-2 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 ${getThemeColorClass('input-bg')}" placeholder="25" />
+                        <span class="text-sm font-medium ${textSecondary}">Nome Completo</span>
+                        <input type="text" name="name" value="${profile.name || ''}" class="mt-1 block w-full px-4 py-2 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 ${inputBgClass}" placeholder="Seu nome" />
                     </label>
-                    <label class="block">
-                        <span class="text-sm font-medium ${getThemeColorClass('text-secondary')}">Sexo</span>
-                        <select name="gender" class="mt-1 block w-full px-4 py-2 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 ${getThemeColorClass('input-bg')}">
-                            <option value="">Selecione</option>
-                            <option value="Masculino" ${profile.gender === 'Masculino' ? 'selected' : ''}>Masculino</option>
-                            <option value="Feminino" ${profile.gender === 'Feminino' ? 'selected' : ''}>Feminino</option>
-                            <option value="Outro" ${profile.gender === 'Outro' ? 'selected' : ''}>Outro</option>
-                        </select>
-                    </label>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <label class="block">
+                            <span class="text-sm font-medium ${textSecondary}">Idade</span>
+                            <input type="number" name="age" value="${profile.age || ''}" class="mt-1 block w-full px-4 py-2 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 ${inputBgClass}" placeholder="25" />
+                        </label>
+                        <label class="block">
+                            <span class="text-sm font-medium ${textSecondary}">Sexo</span>
+                            <select name="gender" class="mt-1 block w-full px-4 py-2 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 ${inputBgClass}">
+                                <option value="">Selecione</option>
+                                <option value="Masculino" ${profile.gender === 'Masculino' ? 'selected' : ''}>Masculino</option>
+                                <option value="Feminino" ${profile.gender === 'Feminino' ? 'selected' : ''}>Feminino</option>
+                                <option value="Outro" ${profile.gender === 'Outro' ? 'selected' : ''}>Outro</option>
+                            </select>
+                        </label>
+                    </div>
+
+                    <h3 class="text-lg font-semibold ${getThemeColorClass('text-primary')} pt-4">Dias de Treino</h3>
+                    <div class="grid grid-cols-4 md:grid-cols-7 gap-2">
+                        ${dayCodes.map((code, index) => `
+                            <label class="flex flex-col items-center justify-center p-2 rounded-lg cursor-pointer transition-colors duration-200 ${
+                                selectedDays.includes(code) 
+                                    ? 'bg-indigo-600 text-white shadow-lg' 
+                                    : `${currentTheme === 'dark' ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-200 hover:bg-gray-300'} ${textSecondary}`
+                            }">
+                                <input 
+                                    type="checkbox" 
+                                    name="trainingDays" 
+                                    value="${code}" 
+                                    ${selectedDays.includes(code) ? 'checked' : ''} 
+                                    class="hidden"
+                                    onchange="this.closest('label').classList.toggle('bg-indigo-600', this.checked); this.closest('label').classList.toggle('text-white', this.checked); this.closest('label').classList.toggle('shadow-lg', this.checked); this.closest('label').classList.toggle('${currentTheme === 'dark' ? 'bg-gray-700' : 'bg-gray-200'}', !this.checked); this.closest('label').classList.toggle('${textSecondary}', !this.checked);"
+                                />
+                                <span class="font-bold text-sm">${dayNamesFull[index].substring(0, 3)}</span>
+                            </label>
+                        `).join('')}
+                    </div>
+
+                    <button type="submit" class="w-full mt-6 py-3 px-4 rounded-lg bg-indigo-600 text-white font-bold hover:bg-indigo-700 transition duration-300 disabled:bg-indigo-900 disabled:opacity-50 flex items-center justify-center shadow-lg">
+                        <i data-lucide="sparkles" class="w-5 h-5 mr-2"></i>
+                        Salvar Perfil e Iniciar
+                    </button>
+                </form>
+            `;
+        };
+        
+        // --- Geração Dinâmica de Itens de Navegação ---
+
+        const getTrainingNavItems = () => {
+            const selectedDays = profile.trainingDays || []; 
+            const dayNames = {
+                'SEG': 'Segunda', 'TER': 'Terça', 'QUA': 'Quarta', 
+                'QUI': 'Quinta', 'SEX': 'Sexta', 'SAB': 'Sábado', 'DOM': 'Domingo'
+            };
+            
+            const templates = [
+                { id: PAGES.DAY1, template: Day1Upper, type: 'Superior' },
+                { id: PAGES.DAY2, template: Day2Cardio, type: 'Cardio' },
+                { id: PAGES.DAY3, template: Day3Lower, type: 'Inferior' },
+            ];
+
+            return selectedDays.slice(0, 3).map((dayCode, index) => {
+                const templateInfo = templates[index];
+                const dayLabel = dayNames[dayCode] || dayCode;
+                
+                return {
+                    id: templateInfo.id,
+                    label: `${templateInfo.type} (${dayLabel.substring(0, 3)})`,
+                    icon: templateInfo.template.icon,
+                    template: templateInfo.template
+                };
+            });
+        };
+
+        const getBaseNavItems = () => [
+            { id: PAGES.OVERVIEW, label: 'Visão Geral', icon: 'target' },
+            { id: PAGES.NUTRITION, label: 'Nutrição', icon: 'utensils' },
+            { id: PAGES.AI_TOOLS, label: 'Ferramentas IA', icon: 'sparkles' },
+            { id: PAGES.FAQ, label: 'Assistente IA', icon: 'message-square' },
+        ];
+
+        const getNavItems = () => {
+            const baseItems = getBaseNavItems();
+            const trainingItems = isAppUnlocked() ? getTrainingNavItems() : [];
+            
+            // Combina itens de navegação, inserindo os treinos após Visão Geral
+            const overviewIndex = baseItems.findIndex(item => item.id === PAGES.OVERVIEW);
+            if (overviewIndex !== -1) {
+                baseItems.splice(overviewIndex + 1, 0, ...trainingItems);
+            }
+            return baseItems;
+        };
+
+
+        const renderNavigation = () => {
+            const container = document.getElementById('navigationContainer');
+            const navItems = getNavItems();
+            const unlocked = isAppUnlocked();
+
+            container.innerHTML = navItems.map(item => {
+                const isOverview = item.id === PAGES.OVERVIEW;
+                // Os botões são desabilitados se não for a Visão Geral E se o app não estiver desbloqueado
+                const isDisabled = !isOverview && !unlocked; 
+                
+                const baseClass = `w-full text-left p-3 rounded-lg font-semibold transition duration-200 flex items-center nav-button`;
+                
+                const themeState = isDisabled ? 'disabled' : (currentPage === item.id ? 'active' : 'inactive');
+                const themeClass = getThemeColorClass('nav-bg', themeState);
+
+                return `
+                    <button
+                        data-page="${item.id}"
+                        ${isDisabled ? 'disabled' : ''}
+                        class="${baseClass} ${themeClass}"
+                    >
+                        <i data-lucide="${item.icon}" class="w-5 h-5"></i>
+                        <span class="ml-3">${item.label}</span>
+                    </button>
+                `;
+            }).join('');
+
+            // Adiciona listeners para navegação (apenas para botões não desabilitados)
+            container.querySelectorAll('.nav-button:not([disabled])').forEach(button => {
+                button.addEventListener('click', () => {
+                    currentPage = button.getAttribute('data-page');
+                    renderContent();
+                });
+            });
+            recreateLucideIcons({ attrs: { class: 'w-5 h-5' } });
+        };
+        
+        // --- Gráfico de Foco Muscular ---
+        const renderMuscleFocusChart = () => {
+            const isDark = currentTheme === 'dark';
+            const chartColor = 'bg-indigo-600';
+            const bgColor = isDark ? 'bg-gray-700' : 'bg-gray-200';
+            const textColor = isDark ? 'text-gray-300' : 'text-gray-700';
+
+            return `
+                <div class="space-y-4">
+                    <h2 class="text-2xl font-extrabold text-indigo-400">Foco Muscular do Plano (3 Dias)</h2>
+                    <p class="${textColor} text-sm">Distribuição de ênfase (porcentagem de volume/esforço) com base no seu plano Superior/Cardio/Inferior.</p>
+                    <div class="grid gap-2">
+                        ${Object.entries(MUSCLE_FOCUS_DATA).map(([muscle, percentage]) => `
+                            <div class="flex items-center space-x-3">
+                                <span class="w-24 text-sm font-medium ${textColor}">${muscle}</span>
+                                <div class="flex-grow ${bgColor} rounded-full h-4">
+                                    <div 
+                                        class="${chartColor} h-4 rounded-full transition-all duration-700 ease-out" 
+                                        style="width: ${percentage}%;"
+                                    ></div>
+                                </div>
+                                <span class="text-sm font-bold ${textColor} w-8 text-right">${percentage}%</span>
+                            </div>
+                        `).join('')}
+                    </div>
                 </div>
+            `;
+        };
 
-                <label class="block">
-                    <span class="text-sm font-medium ${getThemeColorClass('text-secondary')}">E-mail (Opcional)</span>
-                    <input type="email" name="email" value="${profile.email || ''}" class="mt-1 block w-full px-4 py-2 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 ${getThemeColorClass('input-bg')}" placeholder="seu.email@exemplo.com" />
-                </label>
+        // --- Funções de Conteúdo de Página ---
+        
+        const renderDayTemplate = (dayData) => {
+            let contentHtml = '';
+            
+            // Verifica se é o template de Cardio (Day2Cardio)
+            if (dayData.content) {
+                contentHtml = dayData.content;
+            } else {
+                // É um template de treino de força (Day1Upper, Day3Lower)
+                contentHtml = dayData.exercises.map(renderExerciseCard).join('');
+            }
 
-                <button type="submit" class="w-full mt-6 py-3 px-4 rounded-lg bg-indigo-600 text-white font-bold hover:bg-indigo-700 transition duration-300 disabled:bg-indigo-900 disabled:opacity-50 flex items-center justify-center shadow-lg">
-                    <i data-lucide="sparkles" class="w-5 h-5 mr-2"></i>
-                    Salvar Perfil e Iniciar
-                </button>
-            </form>
-        `;
+            let html = `
+                <div class="space-y-10">
+                    <h1 class="text-4xl font-extrabold text-indigo-500 border-b border-indigo-500 pb-3">${dayData.title}</h1>
+                    <div id="dailyTipContainer" class="p-6 ${getThemeColorClass('card-bg')} rounded-xl shadow-2xl space-y-4">
+                        <h2 class="text-2xl font-extrabold text-indigo-400 flex items-center">
+                            <i data-lucide="sparkles" class="w-6 h-6 mr-2 text-indigo-400"></i>
+                            Dica do Dia com IA
+                        </h2>
+                        <div class="flex flex-col md:flex-row gap-4">
+                            <button data-action="daily-tip-text" id="btnGenerateTip" class="flex-1 py-3 px-6 rounded-lg bg-indigo-600 text-white font-bold hover:bg-indigo-700 transition duration-300 ai-button ai-delegated-button">
+                                <i data-lucide="sparkles" class="w-5 h-5 mr-2"></i> Gerar Dica com IA (Texto)
+                            </button>
+                            <button data-action="read-tip-tts" id="btnReadTip" class="flex-1 py-3 px-6 rounded-lg bg-green-600 text-white font-bold hover:bg-green-700 transition duration-300 ai-button ai-delegated-button">
+                                <i data-lucide="volume-2" class="w-5 h-5 mr-2"></i> Ouvir Dica (Áudio)
+                            </button>
+                        </div>
+                        <div id="dailyTipResult" data-last-tip-text=""></div>
+                    </div>
+                    ${contentHtml}
+                </div>
+            `;
+            
+            return html;
+        };
 
-        // --- DELEGAÇÃO DE EVENTOS PARA BOTÕES DE IA ---
+        const renderExerciseCard = (exercise) => {
+            const safeName = exercise.name.replace(/[^a-zA-Z0-9]/g, '-');
+            const buttons = [
+                { label: 'Ver Explicação', type: 'explanation' },
+                { label: 'Sugerir Variação', type: 'variation' },
+                { label: 'Descrever Forma', type: 'form' },
+            ];
+
+            return `
+                <div class="p-6 ${getThemeColorClass('card-bg')} rounded-xl shadow-2xl space-y-3 border-l-4 border-indigo-500 exercise-card">
+                    <h3 class="text-xl font-bold ${getThemeColorClass('text-primary')}">${exercise.name}</h3>
+                    <p class="text-indigo-400 font-semibold">${exercise.setsReps}</p>
+                    <p class="${getThemeColorClass('text-secondary')}">${exercise.function}</p>
+
+                    <div class="flex flex-wrap gap-3 pt-2">
+                        ${buttons.map((btn) => `
+                            <button
+                                data-action="${btn.type}"
+                                data-name="${exercise.name}"
+                                id="btn-${safeName}-${btn.type}"
+                                class="flex-1 min-w-[150px] py-2 px-3 rounded-lg ${currentTheme === 'dark' ? 'bg-gray-700 text-indigo-300 hover:bg-gray-600' : 'bg-gray-200 text-indigo-700 hover:bg-gray-300'} text-sm font-medium transition duration-200 ai-button ai-delegated-button"
+                            >
+                                <i data-lucide="sparkles" class="w-4 h-4 mr-2"></i>
+                                ${btn.label}
+                            </button>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        };
+
+        const renderPage = (pageId) => {
+            const cardBgClass = getThemeColorClass('card-bg');
+            const textSecondary = getThemeColorClass('text-secondary');
+            
+            const navItems = getNavItems();
+            const trainingItem = navItems.find(item => item.id === pageId && item.template);
+            
+            // Lógica para renderizar páginas dinâmicas (Dia 1, Dia 2, Dia 3)
+            if (trainingItem) {
+                return renderDayTemplate(trainingItem.template);
+            }
+
+            switch (pageId) {
+                case PAGES.OVERVIEW:
+                    return `
+                        <div class="space-y-10">
+                            ${renderProfileForm()}
+                            <div class="p-6 ${cardBgClass} rounded-xl shadow-2xl space-y-4">
+                                ${renderMuscleFocusChart()}
+                            </div>
+                        </div>
+                    `;
+                case PAGES.NUTRITION:
+                    return renderNutritionPage();
+                case PAGES.AI_TOOLS:
+                    return renderAiToolsPage();
+                case PAGES.FAQ:
+                    return renderFaqPage();
+                default:
+                    return `<div>Página não encontrada.</div>`;
+            }
+        };
+
+
+        // --- DELEGAÇÃO DE EVENTOS PARA BOTÕES DE IA (mantido) ---
+        // ... (handleDelegatedClick and all handler functions for AI tools are maintained from the original script)
 
         /**
          * Centralized handler for all exercise and daily tip buttons (Performance Optimization)
@@ -689,248 +983,10 @@
             }
         };
 
-        // Attach the main event listener once on DOMContentLoaded
         document.addEventListener('click', handleDelegatedClick);
-
-
-        // --- Funções de Renderização e Lógica (Continuação) ---
-
-
-        const renderNavigation = () => {
-            const container = document.getElementById('navigationContainer');
-            container.innerHTML = NAV_ITEMS.map(item => `
-                <button
-                    data-page="${item.id}"
-                    class="w-full text-left p-3 rounded-lg font-semibold transition duration-200 flex items-center nav-button ${getThemeColorClass('nav-bg', currentPage === item.id ? 'active' : 'inactive')}"
-                >
-                    <i data-lucide="${item.icon}" class="w-5 h-5"></i>
-                    <span class="ml-3">${item.label}</span>
-                </button>
-            `).join('');
-
-            // Adiciona listeners para navegação
-            container.querySelectorAll('.nav-button').forEach(button => {
-                button.addEventListener('click', () => {
-                    currentPage = button.getAttribute('data-page');
-                    renderContent();
-                });
-            });
-            recreateLucideIcons({ attrs: { class: 'w-5 h-5' } });
-        };
-
-        const renderExerciseCard = (exercise) => {
-            const safeName = exercise.name.replace(/[^a-zA-Z0-9]/g, '-');
-            const buttons = [
-                { label: 'Ver Explicação', type: 'explanation' },
-                { label: 'Sugerir Variação', type: 'variation' },
-                { label: 'Descrever Forma', type: 'form' },
-            ];
-
-            return `
-                <div class="p-6 ${getThemeColorClass('card-bg')} rounded-xl shadow-2xl space-y-3 border-l-4 border-indigo-500 exercise-card">
-                    <h3 class="text-xl font-bold ${getThemeColorClass('text-primary')}">${exercise.name}</h3>
-                    <p class="text-indigo-400 font-semibold">${exercise.setsReps}</p>
-                    <p class="${getThemeColorClass('text-secondary')}">${exercise.function}</p>
-
-                    <div class="flex flex-wrap gap-3 pt-2">
-                        ${buttons.map((btn) => `
-                            <button
-                                data-action="${btn.type}"
-                                data-name="${exercise.name}"
-                                id="btn-${safeName}-${btn.type}"
-                                class="flex-1 min-w-[150px] py-2 px-3 rounded-lg ${currentTheme === 'dark' ? 'bg-gray-700 text-indigo-300 hover:bg-gray-600' : 'bg-gray-200 text-indigo-700 hover:bg-gray-300'} text-sm font-medium transition duration-200 ai-button ai-delegated-button"
-                            >
-                                <i data-lucide="sparkles" class="w-4 h-4 mr-2"></i>
-                                ${btn.label}
-                            </button>
-                        `).join('')}
-                    </div>
-                </div>
-            `;
-        };
         
-        const Day1Upper = {
-            title: "Dia 1: Parte Superior",
-            exercises: [
-                { name: '1. Supino Reto', setsReps: '3 séries de 8-12 repetições', function: 'Principal construtor de massa para o peitoral.' },
-                { name: '2. Remada Curvada', setsReps: '3 séries de 8-12 repetições', function: 'Excelente para a densidade e força das costas.' },
-                { name: '3. Desenvolvimento de Ombros', setsReps: '3 séries de 10-12 repetições', function: 'Foco principal na porção medial e anterior dos ombros.' },
-                { name: '4. Puxada Vertical', setsReps: '3 séries até a falha (ou 8-12 reps)', function: 'Foco na "largura" das costas.' },
-                { name: '5. Rosca Direta', setsReps: '3 séries de 10-12 repetições', function: 'Isolamento do bíceps.' },
-                { name: '6. Tríceps Pulley', setsReps: '3 séries de 10-12 repetições', function: 'Isolamento do tríceps.' },
-            ]
-        };
-        
-        const Day3Lower = {
-            title: "Dia 3: Parte Inferior",
-            exercises: [
-                { name: '1. Agachamento Livre', setsReps: '3 séries de 8-12 repetições', function: 'O principal exercício para pernas, trabalhando quadríceps, glúteos e posteriores.' },
-                { name: '2. Levantamento Terra Romeno', setsReps: '3 séries de 8-12 repetições', function: 'Foca na cadeia posterior (posteriores e glúteos).' },
-                { name: '3. Elevação Pélvica (Hip Thrust)', setsReps: '3 séries de 10-15 repetições', function: 'Melhor exercício para isolar e construir os glúteos.' },
-                { name: '4. Leg Press', setsReps: '3 séries de 10-12 repetições', function: 'Permite adicionar volume para o quadríceps.' },
-                { name: '5. Cadeira Extensora', setsReps: '3 séries de 10-12 repetições', function: 'Isola completamente o quadríceps.' },
-                { name: '6. Mesa Flexora', setsReps: '3 séries de 10-12 repetições', function: 'Isola os posteriores de coxa (isquiotibiais).' },
-            ]
-        };
+        // Funções de Handler (Nutrição/AI Tools) - Mantidas para funcionalidade
 
-        const renderDayTemplate = (dayData) => {
-            // OBS: A lógica de clique agora é tratada por delegação em handleDelegatedClick
-            let html = `
-                <div class="space-y-10">
-                    <h1 class="text-4xl font-extrabold text-indigo-500 border-b border-indigo-500 pb-3">${dayData.title}</h1>
-                    <div id="dailyTipContainer" class="p-6 ${getThemeColorClass('card-bg')} rounded-xl shadow-2xl space-y-4">
-                        <h2 class="text-2xl font-extrabold text-indigo-400 flex items-center">
-                            <i data-lucide="sparkles" class="w-6 h-6 mr-2 text-indigo-400"></i>
-                            Dica do Dia com IA
-                        </h2>
-                        <div class="flex flex-col md:flex-row gap-4">
-                            <button data-action="daily-tip-text" id="btnGenerateTip" class="flex-1 py-3 px-6 rounded-lg bg-indigo-600 text-white font-bold hover:bg-indigo-700 transition duration-300 ai-button ai-delegated-button">
-                                <i data-lucide="sparkles" class="w-5 h-5 mr-2"></i> Gerar Dica com IA (Texto)
-                            </button>
-                            <button data-action="read-tip-tts" id="btnReadTip" class="flex-1 py-3 px-6 rounded-lg bg-green-600 text-white font-bold hover:bg-green-700 transition duration-300 ai-button ai-delegated-button">
-                                <i data-lucide="volume-2" class="w-5 h-5 mr-2"></i> Ouvir Dica (Áudio)
-                            </button>
-                        </div>
-                        <div id="dailyTipResult" data-last-tip-text=""></div>
-                    </div>
-            `;
-            html += dayData.exercises.map(renderExerciseCard).join('');
-            html += `</div>`;
-            
-            return html;
-        };
-
-
-        const renderPage = (pageId) => {
-            const cardBgClass = getThemeColorClass('card-bg');
-            const textSecondary = getThemeColorClass('text-secondary');
-            
-            switch (pageId) {
-                case PAGES.OVERVIEW:
-                    return `
-                        <div class="space-y-10">
-                            ${renderProfileForm()}
-                            <div class="p-6 ${cardBgClass} rounded-xl shadow-2xl space-y-4">
-                                <h2 class="text-2xl font-extrabold text-indigo-400">Estrutura da Semana</h2>
-                                <p class="${textSecondary}">Plano de 3 dias, focado em hipertrofia e manutenção. Adapte os dias de descanso conforme sua recuperação.</p>
-                                <div class="grid grid-cols-2 md:grid-cols-7 gap-4 text-center mt-6">
-                                    ${[
-                                        { day: 'Dia 1', focus: 'Superior', color: 'bg-indigo-600' },
-                                        { day: 'Dia 2', focus: 'Descanso', color: 'bg-gray-700' },
-                                        { day: 'Dia 3', focus: 'Cardio', color: 'bg-green-600' },
-                                        { day: 'Dia 4', focus: 'Descanso', color: 'bg-gray-700' },
-                                        { day: 'Dia 5', focus: 'Inferior', color: 'bg-red-600' },
-                                        { day: 'Dia 6', focus: 'Descanso', color: 'bg-gray-700' },
-                                        { day: 'Dia 7', focus: 'Descanso', color: 'bg-gray-700' },
-                                    ].map((item) => `
-                                        <div class="p-3 rounded-lg ${item.color} text-white font-semibold shadow-md">
-                                            <div class="text-sm opacity-75">${item.day}</div>
-                                            <div class="text-lg font-bold">${item.focus}</div>
-                                        </div>
-                                    `).join('')}
-                                </div>
-                            </div>
-                            <div class="p-6 ${cardBgClass} rounded-xl shadow-2xl">
-                                <h2 class="text-2xl font-extrabold text-indigo-400">Foco Muscular do Plano</h2>
-                                <div class="h-40 ${currentTheme === 'dark' ? 'bg-gray-700' : 'bg-gray-200'} rounded-lg flex items-center justify-center text-gray-500 mt-4">
-                                    [Gráfico de distribuição muscular - Placeholder]
-                                </div>
-                            </div>
-                        </div>
-                    `;
-                case PAGES.DAY1:
-                    return renderDayTemplate(Day1Upper);
-                case PAGES.DAY3:
-                    return renderDayTemplate(Day3Lower);
-                case PAGES.DAY2:
-                    return `
-                        <div class="space-y-10">
-                            <h1 class="text-4xl font-extrabold text-indigo-500 border-b border-indigo-500 pb-3">Dia 2: Cardio e Recuperação Ativa</h1>
-                            <div class="p-6 ${cardBgClass} rounded-xl shadow-2xl space-y-4">
-                                <h2 class="text-2xl font-extrabold text-indigo-400">Opção 1: Cardio Contínuo (LISS)</h2>
-                                <ul class="list-disc list-inside ${textSecondary} ml-4 space-y-2">
-                                    <li><span class="font-semibold ${getThemeColorClass('text-primary')}">Corrida:</span> 30-45 minutos em intensidade moderada.</li>
-                                    <li><span class="font-semibold ${getThemeColorClass('text-primary')}">Bicicleta:</span> 45-60 minutos em terreno variado.</li>
-                                </ul>
-                            </div>
-                            <div class="p-6 ${cardBgClass} rounded-xl shadow-2xl space-y-4">
-                                <h2 class="text-2xl font-extrabold text-indigo-400">Opção 2: HIIT (Alternativa)</h2>
-                                <ul class="list-disc list-inside ${textSecondary} ml-4 space-y-2">
-                                    <li><span class="font-semibold ${getThemeColorClass('text-primary')}">Exemplo na esteira (20 min):</span> 5 min aquecimento, 8x (1 min forte + 1 min caminhada), 4 min desaquecimento.</li>
-                                </ul>
-                            </div>
-                        </div>
-                    `;
-                case PAGES.NUTRITION:
-                    return renderNutritionPage();
-                case PAGES.AI_TOOLS:
-                    return renderAiToolsPage();
-                case PAGES.FAQ:
-                    return renderFaqPage();
-                default:
-                    return `<div>Página não encontrada.</div>`;
-            }
-        };
-
-        const renderNutritionPage = () => {
-            const cardBgClass = getThemeColorClass('card-bg');
-            const inputBgClass = getThemeColorClass('input-bg');
-            const textSecondary = getThemeColorClass('text-secondary');
-
-            // Lógica para Analisador de Refeição
-            const mealAnalyzerHtml = `
-                <div class="p-6 ${cardBgClass} rounded-xl shadow-2xl space-y-4">
-                    <h2 class="text-2xl font-extrabold text-indigo-400 flex items-center">
-                        <i data-lucide="utensils" class="w-6 h-6 mr-2 text-indigo-400"></i>
-                        Analisador de Refeição com IA
-                    </h2>
-                    <p class="${textSecondary}">Descreva uma refeição que você fez e a IA irá fornecer uma estimativa de calorias e macros.</p>
-                    <textarea id="mealDescription" rows="4" placeholder="Ex: 150g de peito de frango grelhado, uma xícara de arroz integral e meia batata-doce cozida." class="w-full p-3 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 ${inputBgClass}"></textarea>
-                    <button data-action="analyze-meal" id="btnMealAnalyze" class="w-full py-3 px-4 rounded-lg bg-indigo-600 text-white font-bold hover:bg-indigo-700 transition duration-300 ai-button ai-delegated-button">
-                        <i data-lucide="zap" class="w-5 h-5 mr-2"></i> Analisar Refeição
-                    </button>
-                    <div id="mealAnalyzerResult"></div>
-                </div>
-            `;
-
-            // Lógica para Criador de Receitas
-            const recipeCreatorHtml = `
-                <div class="p-6 ${cardBgClass} rounded-xl shadow-2xl space-y-4">
-                    <h2 class="text-2xl font-extrabold text-indigo-400 flex items-center">
-                        <i data-lucide="utensils" class="w-6 h-6 mr-2 text-indigo-400"></i>
-                        Criador de Receitas com IA
-                    </h2>
-                    <p class="${textSecondary}">Liste os ingredientes que tem em casa e a IA cria uma receita saudável para você!</p>
-                    <textarea id="ingredientsList" rows="4" placeholder="Ex: Peito de frango, batata-doce, brócolis, azeite, alho." class="w-full p-3 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 ${inputBgClass}"></textarea>
-                    <button data-action="generate-recipe" id="btnGenerateRecipe" class="w-full py-3 px-4 rounded-lg bg-indigo-600 text-white font-bold hover:bg-indigo-700 transition duration-300 ai-button ai-delegated-button">
-                        <i data-lucide="sparkles" class="w-5 h-5 mr-2"></i> Criar Receita Saudável
-                    </button>
-                    <div id="recipeCreatorResult"></div>
-                </div>
-            `;
-            
-            return `
-                <div class="space-y-10">
-                    <h1 class="text-4xl font-extrabold text-indigo-500 border-b border-indigo-500 pb-3">Plano de Nutrição & Ferramentas IA</h1>
-                    ${mealAnalyzerHtml}
-                    ${recipeCreatorHtml}
-                    <div class="p-6 ${cardBgClass} rounded-xl shadow-2xl space-y-4">
-                        <h2 class="text-2xl font-extrabold text-indigo-400">Plano de Nutrição Sugerido</h2>
-                        <div class="space-y-4 ${textSecondary}">
-                            <h4 class="text-xl font-bold text-indigo-400">Café da Manhã</h4>
-                            <p>Aveia cozida com leite de amêndoes, banana e manteiga de amendoim.</p>
-                            <h4 class="text-xl font-bold text-indigo-400">Almoço</h4>
-                            <p>Peito de frango grelhado, quinoa e brócolis no vapor.</p>
-                            <h4 class="text-xl font-bold text-indigo-400">Jantar</h4>
-                            <p>Salmão grelhado com batata-doce assada e aspargos.</p>
-                        </div>
-                    </div>
-                </div>
-            `;
-        };
-        // Lógica de manipulação para as funções de nutrição (mantidas separadas para simplicidade na conversão)
-
-        // Diário de Progresso Semanal
         const handleAnalyzeProgress = async (button, textarea, resultContainer) => {
             const notes = textarea.value.trim();
             if (!notes) return;
@@ -954,7 +1010,6 @@
             }
         };
 
-        // Criador de Receitas
         const handleGenerateRecipe = async (button, textarea, resultContainer) => {
             const ingredients = textarea.value.trim();
             if (!ingredients) return;
@@ -999,7 +1054,6 @@
             }
         };
         
-        // Analisador de Refeição
         const handleMealAnalyze = async (button, textarea, resultContainer) => {
             const mealDescription = textarea.value.trim();
             if (!mealDescription) return;
@@ -1023,7 +1077,6 @@
             }
         };
         
-        // Gerador de Treino Rápido
         const handleQuickWorkoutGenerate = async (button, timeSelect, equipmentSelect, resultContainer) => {
             const time = timeSelect.value;
             const equipment = equipmentSelect.value;
@@ -1047,7 +1100,6 @@
             }
         };
 
-        // Gerador de Rotina de Mobilidade
         const handleMobilityGenerate = async (button, focusSelect, resultContainer) => {
             const focusArea = focusSelect.value;
             
@@ -1070,7 +1122,6 @@
             }
         };
 
-        // Planejador de Metas Semanal (Goal Planner)
         const handleGoalPlanner = async (button, textarea, resultContainer) => {
             const goal = textarea.value.trim();
             if (!goal) return;
@@ -1094,7 +1145,6 @@
             }
         };
 
-        // Ajuste seu Plano com IA (Plan Adjuster)
         const handlePlanAdjust = async (button, select, resultContainer) => {
             const newGoal = select.value;
             if (!newGoal) return;
@@ -1121,11 +1171,66 @@
         };
 
 
+        const renderNutritionPage = () => {
+            const cardBgClass = getThemeColorClass('card-bg');
+            const inputBgClass = getThemeColorClass('input-bg');
+            const textSecondary = getThemeColorClass('text-secondary');
+
+            const mealAnalyzerHtml = `
+                <div class="p-6 ${cardBgClass} rounded-xl shadow-2xl space-y-4">
+                    <h2 class="text-2xl font-extrabold text-indigo-400 flex items-center">
+                        <i data-lucide="utensils" class="w-6 h-6 mr-2 text-indigo-400"></i>
+                        Analisador de Refeição com IA
+                    </h2>
+                    <p class="${textSecondary}">Descreva uma refeição que você fez e a IA irá fornecer uma estimativa de calorias e macros.</p>
+                    <textarea id="mealDescription" rows="4" placeholder="Ex: 150g de peito de frango grelhado, uma xícara de arroz integral e meia batata-doce cozida." class="w-full p-3 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 ${inputBgClass}"></textarea>
+                    <button data-action="analyze-meal" id="btnMealAnalyze" class="w-full py-3 px-4 rounded-lg bg-indigo-600 text-white font-bold hover:bg-indigo-700 transition duration-300 ai-button ai-delegated-button">
+                        <i data-lucide="zap" class="w-5 h-5 mr-2"></i> Analisar Refeição
+                    </button>
+                    <div id="mealAnalyzerResult"></div>
+                </div>
+            `;
+
+            const recipeCreatorHtml = `
+                <div class="p-6 ${cardBgClass} rounded-xl shadow-2xl space-y-4">
+                    <h2 class="text-2xl font-extrabold text-indigo-400 flex items-center">
+                        <i data-lucide="utensils" class="w-6 h-6 mr-2 text-indigo-400"></i>
+                        Criador de Receitas com IA
+                    </h2>
+                    <p class="${textSecondary}">Liste os ingredientes que tem em casa e a IA cria uma receita saudável para você!</p>
+                    <textarea id="ingredientsList" rows="4" placeholder="Ex: Peito de frango, batata-doce, brócolis, azeite, alho." class="w-full p-3 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 ${inputBgClass}"></textarea>
+                    <button data-action="generate-recipe" id="btnGenerateRecipe" class="w-full py-3 px-4 rounded-lg bg-indigo-600 text-white font-bold hover:bg-indigo-700 transition duration-300 ai-button ai-delegated-button">
+                        <i data-lucide="sparkles" class="w-5 h-5 mr-2"></i> Criar Receita Saudável
+                    </button>
+                    <div id="recipeCreatorResult"></div>
+                </div>
+            `;
+            
+            return `
+                <div class="space-y-10">
+                    <h1 class="text-4xl font-extrabold text-indigo-500 border-b border-indigo-500 pb-3">Plano de Nutrição & Ferramentas IA</h1>
+                    ${mealAnalyzerHtml}
+                    ${recipeCreatorHtml}
+                    <div class="p-6 ${cardBgClass} rounded-xl shadow-2xl space-y-4">
+                        <h2 class="text-2xl font-extrabold text-indigo-400">Plano de Nutrição Sugerido</h2>
+                        <div class="space-y-4 ${textSecondary}">
+                            <h4 class="text-xl font-bold text-indigo-400">Café da Manhã</h4>
+                            <p>Aveia cozida com leite de amêndoes, banana e manteiga de amendoim.</p>
+                            <h4 class="text-xl font-bold text-indigo-400">Almoço</h4>
+                            <p>Peito de frango grelhado, quinoa e brócolis no vapor.</p>
+                            <h4 class="text-xl font-bold text-indigo-400">Jantar</h4>
+                            <p>Salmão grelhado com batata-doce assada e aspargos.</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+        };
+
         const renderAiToolsPage = () => {
             const cardBgClass = getThemeColorClass('card-bg');
             const inputBgClass = getThemeColorClass('input-bg');
             const textSecondary = getThemeColorClass('text-secondary');
-             // Lógica para Ajuste de Plano
+             
             const planAdjusterHtml = `
                 <div class="p-6 ${cardBgClass} rounded-xl shadow-2xl space-y-4">
                     <h2 class="text-2xl font-extrabold text-indigo-400 flex items-center">
@@ -1149,7 +1254,6 @@
                 </div>
             `;
 
-             // Lógica para Planejador de Metas Semanal
             const goalPlannerHtml = `
                 <div class="p-6 ${cardBgClass} rounded-xl shadow-2xl space-y-4">
                     <h2 class="text-2xl font-extrabold text-indigo-400 flex items-center">
@@ -1165,7 +1269,6 @@
                 </div>
             `;
 
-             // Lógica para Treino Rápido
             const quickWorkoutHtml = `
                 <div class="p-6 ${cardBgClass} rounded-xl shadow-2xl space-y-4">
                     <h2 class="text-2xl font-extrabold text-indigo-400 flex items-center">
@@ -1198,7 +1301,6 @@
                 </div>
             `;
 
-            // Lógica para Rotina de Mobilidade
             const mobilityRoutineHtml = `
                 <div class="p-6 ${cardBgClass} rounded-xl shadow-2xl space-y-4">
                     <h2 class="text-2xl font-extrabold text-indigo-400 flex items-center">
@@ -1222,7 +1324,6 @@
                 </div>
             `;
 
-            // Lógica para Diário de Progresso Semanal
             const progressDiaryHtml = `
                 <div class="p-6 ${cardBgClass} rounded-xl shadow-2xl space-y-4">
                     <h2 class="text-2xl font-extrabold text-indigo-400 flex items-center">
@@ -1249,7 +1350,7 @@
                 </div>
             `;
         };
-
+        
         let chatMessages = [];
 
         const handleChatSend = async (inputElement, sendButton, resultContainer) => {
@@ -1379,11 +1480,17 @@
                 </div>
             `;
         };
-        
+
+
         const renderContent = () => {
             const container = document.getElementById('contentContainer');
             // Aplica a classe de fundo principal para o container de conteúdo
             container.className = `lg:col-span-3 p-6 rounded-xl transition-colors duration-300 ${getThemeColorClass('main-bg')}`;
+            
+            // Se o app estiver bloqueado, garante que a página seja a Visão Geral
+            if (!isAppUnlocked() && currentPage !== PAGES.OVERVIEW) {
+                currentPage = PAGES.OVERVIEW;
+            }
             
             container.innerHTML = renderPage(currentPage);
             
@@ -1391,10 +1498,12 @@
             if (currentPage === PAGES.OVERVIEW) {
                 const profileForm = document.getElementById('profileForm');
                 if (profileForm) {
+                    // Remove listener anterior para evitar duplicidade
+                    profileForm.removeEventListener('submit', handleProfileSave);
                     profileForm.addEventListener('submit', handleProfileSave);
                 }
             }
-            // Chama a criação de ícones para toda a página
+            
             if (typeof lucide !== 'undefined' && lucide.createIcons) {
                 recreateLucideIcons({ attrs: { class: 'w-5 h-5' } });
                 recreateLucideIcons({ attrs: { class: 'w-6 h-6' } });
@@ -1414,9 +1523,11 @@
 
 
             if (!firebaseConfig.apiKey) {
-                console.error("Configuração do Firebase ausente. Usando 'default-app-id'.");
+                console.error("Configuração do Firebase ausente. Usando modo sem persistência.");
                 // Permite que a aplicação continue a ser renderizada sem persistência de dados
                 authReady = true;
+                currentUserId = 'anon-no-firestore';
+                document.getElementById('userIdDisplay').textContent = currentUserId;
                 renderApp();
                 return;
             }
@@ -1439,8 +1550,15 @@
                         } else {
                             profile = {}; 
                         }
+                        
+                        // Garante que o usuário veja a Visão Geral se acabou de salvar e desbloqueou
+                        if (isAppUnlocked() && currentPage === 'overview') {
+                            currentPage = 'overview'; // Mantém na overview para ver o resultado
+                        }
+
                         authReady = true; // Marca como pronto após a primeira checagem de perfil
                         renderApp();
+
                     }, (error) => {
                         console.error("Erro ao escutar o perfil:", error);
                         authReady = true;
@@ -1458,6 +1576,7 @@
                         }
                     } catch (error) {
                         console.error("Erro na autenticação:", error);
+                        // Falha na autenticação, renderiza o app como anônimo sem ID do Firestore
                         authReady = true;
                         renderApp();
                     }
