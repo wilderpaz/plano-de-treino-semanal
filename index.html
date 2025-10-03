@@ -10,12 +10,11 @@
     <!-- Importa a versão UMD para acesso global via 'lucide' -->
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
     <style>
-        body { font-family: 'Inter', sans-serif; }
         /* Estilo customizado para a barra de rolagem */
         .custom-scrollbar::-webkit-scrollbar { width: 8px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: #1f2937; } /* gray-800 */
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #4f46e5; border-radius: 10px; } /* indigo-600 */
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #6366f1; } /* indigo-500 */
+        .custom-scrollbar::-webkit-scrollbar-track { background: var(--bg-track, #1f2937); }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: var(--scroll-thumb, #4f46e5); border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: var(--scroll-hover, #6366f1); } 
         .ai-button {
             display: flex;
             align-items: center;
@@ -24,14 +23,28 @@
         }
     </style>
 </head>
-<body class="min-h-screen bg-gray-900 text-white p-4 md:p-8">
+<!-- A classe da cor de fundo/texto é definida dinamicamente pelo JS -->
+<body class="min-h-screen p-4 md:p-8 transition-colors duration-300">
 
     <!-- Cabeçalho -->
-    <header class="mb-8 border-b border-gray-700 pb-4">
-        <h1 class="text-5xl font-extrabold text-indigo-400 tracking-tight">Plano de Treino Interativo</h1>
-        <p class="text-gray-400 mt-2">Seu guia semanal potencializado por IA.</p>
-        <div class="mt-4 text-sm text-gray-500">
-            ID do Usuário (Firestore): <span id="userIdDisplay" class="font-mono text-xs p-1 bg-gray-800 rounded">Autenticando...</span>
+    <header class="mb-8 border-b pb-4 transition-colors duration-300" id="mainHeader">
+        <div class="flex justify-between items-start">
+            <div class="space-y-1">
+                <!-- Espaço para Logo e Título Principal -->
+                <div id="logoPlaceholder" class="flex items-center space-x-3">
+                    <i data-lucide="dumbbell" class="w-10 h-10 text-indigo-500"></i> 
+                    <h1 class="text-4xl font-extrabold tracking-tight" id="mainTitle">Plano de Treino IA</h1>
+                </div>
+                <p class="mt-2 text-sm" id="subtitle">Seu guia semanal potencializado por IA.</p>
+            </div>
+            
+            <!-- Botão de Alternar Tema (Claro/Escuro) -->
+            <button id="themeToggle" class="p-2 rounded-full hover:bg-opacity-70 transition-colors duration-300">
+                <i data-lucide="sun" class="w-6 h-6" id="themeIcon"></i>
+            </button>
+        </div>
+        <div class="mt-4 text-sm" id="userIdContainer">
+            ID do Usuário (Firestore): <span id="userIdDisplay" class="font-mono text-xs p-1 rounded">Conectando...</span>
         </div>
     </header>
 
@@ -43,7 +56,7 @@
         </div>
 
         <!-- Coluna de Conteúdo (Principal) -->
-        <main id="contentContainer" class="lg:col-span-3 bg-gray-900/50 p-6 rounded-xl shadow-inner shadow-gray-800">
+        <main id="contentContainer" class="lg:col-span-3 p-6 rounded-xl transition-colors duration-300">
             <div id="loadingApp" class="flex items-center justify-center p-8">
                 <svg class="animate-spin h-8 w-8 text-indigo-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
                 <span class="ml-3 text-lg">Conectando ao Firebase...</span>
@@ -52,37 +65,25 @@
     </div>
     
     <!-- Rodapé -->
-    <footer class="mt-12 text-center text-gray-500 text-sm border-t border-gray-800 pt-4">
+    <footer class="mt-12 text-center text-sm border-t pt-4" id="footer">
         Desenvolvido com Vanilla JS, Tailwind CSS e Gemini IA.
     </footer>
 
     <!-- Script de Inicialização e Lógica (Todo o JS aqui) -->
-       <script type="module">
-      // Import the functions you need from the SDKs you need
-      import { initializeApp } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-app.js";
-      import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-analytics.js";
-      // TODO: Add SDKs for Firebase products that you want to use
-      // https://firebase.google.com/docs/web/setup#available-libraries
-    
-      // Your web app's Firebase configuration
-      // For Firebase JS SDK v7.20.0 and later, measurementId is optional
-      const firebaseConfig = {
-        apiKey: "AIzaSyAnxJqVhEnvdAMcmDTNjAU2G9MHxmAVNbY",
-        authDomain: "plano-de-treino-semanal.firebaseapp.com",
-        projectId: "plano-de-treino-semanal",
-        storageBucket: "plano-de-treino-semanal.firebasestorage.app",
-        messagingSenderId: "70819701777",
-        appId: "1:70819701777:web:c6ebc648e91c018d787db0",
-        measurementId: "G-ETJ9R7HHGF"
-      };
-    
-      // Initialize Firebase
-      const app = initializeApp(firebaseConfig);
-      const analytics = getAnalytics(app);
-
+    <script type="module">
+        // Importações do Firebase
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        
+        // Variáveis Globais de Ambiente (serão fornecidas pelo ambiente Canvas)
+        // OBS: Se estiver a rodar fora do ambiente Canvas, defina estas variáveis no seu código local.
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
         // Configurações da API Gemini
-        const GEMINI_API_KEY = "AIzaSyBeJaGLve3Bg43aoDe4izcTnd5Wtqf-4ao";
+        const GEMINI_API_KEY = "AIzaSyBeJaGLve3Bg43aoDe4izcTnd5Wtqf-4ao"; // CHAVE ATUALIZADA
         const GEMINI_MODEL = "gemini-2.5-flash-preview-05-20";
         const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
 
@@ -92,17 +93,87 @@
         let currentUserId = null;
         let profile = {};
         let currentPage = 'overview';
-        let authReady = false;
+        let authReady = false; // Flag para esperar pela autenticação
+        let currentTheme = 'dark'; // Variável de estado para o tema
 
-        // --- Funções de Utilitário ---
+        // --- Funções de Utilitário e Tema ---
+        
+        const getThemeColorClass = (element, state) => {
+            const dark = currentTheme === 'dark';
 
+            switch(element) {
+                case 'header':
+                    return dark ? 'border-gray-700' : 'border-gray-300';
+                case 'header-title':
+                    return dark ? 'text-indigo-400' : 'text-indigo-700';
+                case 'header-subtitle':
+                    return dark ? 'text-gray-400' : 'text-gray-600';
+                case 'footer':
+                    return dark ? 'text-gray-500 border-gray-800' : 'text-gray-500 border-gray-300';
+                case 'card-bg':
+                    return dark ? 'bg-gray-800 shadow-xl' : 'bg-white shadow-md border border-gray-200';
+                case 'nav-bg':
+                    return state === 'active' ? 'bg-indigo-600 text-white shadow-lg' : (dark ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-200 text-gray-700 hover:bg-gray-300');
+                case 'text-primary':
+                    return dark ? 'text-white' : 'text-gray-900';
+                case 'text-secondary':
+                    return dark ? 'text-gray-400' : 'text-gray-600';
+                case 'input-bg':
+                    return dark ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-500' : 'bg-gray-100 border-gray-300 text-gray-900 placeholder-gray-600';
+                case 'main-bg':
+                    return dark ? 'bg-gray-900/50 shadow-inner shadow-gray-800' : 'bg-gray-50 shadow-inner shadow-gray-300';
+                case 'code-bg':
+                    return dark ? 'bg-gray-700/50' : 'bg-gray-100/50';
+                default:
+                    return '';
+            }
+        };
+
+        const applyTheme = (theme) => {
+            currentTheme = theme;
+            const body = document.body;
+            const isDark = theme === 'dark';
+            
+            // 1. Atualiza as classes do Body
+            body.className = `min-h-screen p-4 md:p-8 transition-colors duration-300 ${isDark ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-900'}`;
+
+            // 2. Atualiza o ícone do botão
+            const icon = document.getElementById('themeIcon');
+            if (icon) {
+                icon.setAttribute('data-lucide', isDark ? 'sun' : 'moon');
+            }
+
+            // 3. Atualiza estilos globais (footer, header)
+            document.getElementById('mainHeader').className = `mb-8 border-b pb-4 transition-colors duration-300 ${getThemeColorClass('header')}`;
+            document.getElementById('footer').className = `mt-12 text-center text-sm border-t pt-4 ${getThemeColorClass('footer')}`;
+            document.getElementById('mainTitle').className = `text-4xl font-extrabold tracking-tight ${getThemeColorClass('header-title')}`;
+            document.getElementById('subtitle').className = `mt-2 text-sm ${getThemeColorClass('header-subtitle')}`;
+            
+            // 4. Persiste a escolha
+            localStorage.setItem('app-theme', theme);
+            
+            // 5. Rerenderiza o conteúdo para aplicar as classes
+            if (authReady) {
+                 renderApp();
+            } else {
+                 recreateLucideIcons({ attrs: { class: 'w-6 h-6' } });
+            }
+        };
+
+        const toggleTheme = () => {
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            applyTheme(newTheme);
+        };
+        
+        // Finaliza Funções de Utilitário
+        
         /**
          * Renderiza o indicador de loading.
          * @param {string} message 
          * @returns {string} HTML do indicador.
          */
         const LoadingIndicator = (message = "A IA está trabalhando...") => `
-            <div class="flex items-center justify-center p-4 bg-gray-700/50 rounded-lg animate-pulse">
+            <div class="flex items-center justify-center p-4 ${getThemeColorClass('code-bg')} rounded-lg animate-pulse">
                 <svg class="w-5 h-5 mr-2 text-white animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
                 <span class="text-white text-sm">${message}</span>
             </div>
@@ -115,12 +186,12 @@
          * @returns {string} HTML do box de resultado.
          */
         const AiResultBox = (title, content) => `
-            <div class="mt-4 p-5 bg-gray-800 rounded-xl shadow-lg border border-indigo-600">
+            <div class="mt-4 p-5 ${getThemeColorClass('card-bg')} rounded-xl shadow-lg border border-indigo-600">
                 <h3 class="text-xl font-bold text-indigo-400 mb-3 flex items-center">
                     <i data-lucide="sparkles" class="w-5 h-5 mr-2"></i>
                     ${title}
                 </h3>
-                <div class="text-gray-300 whitespace-pre-wrap">
+                <div class="${getThemeColorClass('text-secondary')} whitespace-pre-wrap">
                     ${content}
                 </div>
             </div>
@@ -154,7 +225,7 @@
 
                     if (!response.ok) {
                         const errorBody = await response.text();
-                        throw new Error(`API response error: ${response.status} - ${errorBody}`);
+                        throw new Error(`API response error: ${response.status} - ${response.statusText}. Body: ${errorBody}`);
                     }
 
                     const result = await response.json();
@@ -361,14 +432,14 @@
             { id: PAGES.FAQ, label: 'Assistente IA', icon: 'message-square' },
         ];
         
-        // --- 1. Lógica do Perfil do Usuário ---
+        // --- 1. Lógica do Perfil do Usuário (REESTRUTURADA PARA FIREBASE) ---
 
         const handleProfileSave = async (e) => {
             e.preventDefault();
             const form = e.target;
             
-            if (!currentUserId || !db || !authReady) {
-                console.error('Aguardando autenticação para salvar.');
+            if (!currentUserId || !db) {
+                console.error('Aguardando conexão ou autenticação do Firebase para salvar.');
                 return;
             }
 
@@ -385,11 +456,10 @@
             saveButton.disabled = true;
 
             try {
+                // Caminho Firestore: /artifacts/{appId}/users/{userId}/profile/main
                 const docRef = doc(db, `artifacts/${appId}/users/${currentUserId}/profile/main`);
                 await setDoc(docRef, profileData, { merge: true });
-                profile = profileData; 
-                
-                renderContent(); 
+                // O onSnapshot irá atualizar o estado "profile" e chamar renderContent()
                 
                 saveButton.innerHTML = '<i data-lucide="sparkles" class="w-5 h-5 mr-2"></i> Perfil Salvo!';
                 saveButton.classList.remove('bg-indigo-600');
@@ -403,7 +473,7 @@
                 }, 3000);
 
             } catch (error) {
-                console.error("Erro ao salvar o perfil:", error);
+                console.error("Erro ao salvar o perfil no Firestore:", error);
                 saveButton.innerHTML = '<i data-lucide="zap" class="w-5 h-5 mr-2"></i> Erro ao Salvar!';
                 saveButton.classList.remove('bg-indigo-600');
                 saveButton.classList.add('bg-red-600');
@@ -412,23 +482,23 @@
         };
 
         const renderProfileForm = () => `
-            <form id="profileForm" class="space-y-4 p-6 bg-gray-800 rounded-xl shadow-2xl">
-                <h2 class="text-2xl font-extrabold text-white mb-4">Suas Informações</h2>
-                <p class="text-gray-400 mb-6">Preencha seus dados para personalizar a experiência. (Salvo no Firebase).</p>
+            <form id="profileForm" class="space-y-4 p-6 ${getThemeColorClass('card-bg')} rounded-xl shadow-2xl">
+                <h2 class="text-2xl font-extrabold text-indigo-400 mb-4">Suas Informações</h2>
+                <p class="${getThemeColorClass('text-secondary')} mb-6">Preencha seus dados para personalizar a experiência. (Salvo no Firestore).</p>
 
                 <label class="block">
-                    <span class="text-sm font-medium text-gray-300">Nome Completo</span>
-                    <input type="text" name="name" value="${profile.name || ''}" class="mt-1 block w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:ring-indigo-500 focus:border-indigo-500" placeholder="Seu nome" />
+                    <span class="text-sm font-medium ${getThemeColorClass('text-secondary')}">Nome Completo</span>
+                    <input type="text" name="name" value="${profile.name || ''}" class="mt-1 block w-full px-4 py-2 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 ${getThemeColorClass('input-bg')}" placeholder="Seu nome" />
                 </label>
 
                 <div class="grid grid-cols-2 gap-4">
                     <label class="block">
-                        <span class="text-sm font-medium text-gray-300">Idade</span>
-                        <input type="number" name="age" value="${profile.age || ''}" class="mt-1 block w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:ring-indigo-500 focus:border-indigo-500" placeholder="25" />
+                        <span class="text-sm font-medium ${getThemeColorClass('text-secondary')}">Idade</span>
+                        <input type="number" name="age" value="${profile.age || ''}" class="mt-1 block w-full px-4 py-2 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 ${getThemeColorClass('input-bg')}" placeholder="25" />
                     </label>
                     <label class="block">
-                        <span class="text-sm font-medium text-gray-300">Sexo</span>
-                        <select name="gender" class="mt-1 block w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-indigo-500 focus:border-indigo-500">
+                        <span class="text-sm font-medium ${getThemeColorClass('text-secondary')}">Sexo</span>
+                        <select name="gender" class="mt-1 block w-full px-4 py-2 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 ${getThemeColorClass('input-bg')}">
                             <option value="">Selecione</option>
                             <option value="Masculino" ${profile.gender === 'Masculino' ? 'selected' : ''}>Masculino</option>
                             <option value="Feminino" ${profile.gender === 'Feminino' ? 'selected' : ''}>Feminino</option>
@@ -438,8 +508,8 @@
                 </div>
 
                 <label class="block">
-                    <span class="text-sm font-medium text-gray-300">E-mail (Opcional)</span>
-                    <input type="email" name="email" value="${profile.email || ''}" class="mt-1 block w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:ring-indigo-500 focus:border-indigo-500" placeholder="seu.email@exemplo.com" />
+                    <span class="text-sm font-medium ${getThemeColorClass('text-secondary')}">E-mail (Opcional)</span>
+                    <input type="email" name="email" value="${profile.email || ''}" class="mt-1 block w-full px-4 py-2 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 ${getThemeColorClass('input-bg')}" placeholder="seu.email@exemplo.com" />
                 </label>
 
                 <button type="submit" class="w-full mt-6 py-3 px-4 rounded-lg bg-indigo-600 text-white font-bold hover:bg-indigo-700 transition duration-300 disabled:bg-indigo-900 disabled:opacity-50 flex items-center justify-center shadow-lg">
@@ -631,11 +701,7 @@
             container.innerHTML = NAV_ITEMS.map(item => `
                 <button
                     data-page="${item.id}"
-                    class="w-full text-left p-3 rounded-lg font-semibold transition duration-200 flex items-center nav-button ${
-                        currentPage === item.id 
-                            ? 'bg-indigo-600 text-white shadow-lg' 
-                            : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                    }"
+                    class="w-full text-left p-3 rounded-lg font-semibold transition duration-200 flex items-center nav-button ${getThemeColorClass('nav-bg', currentPage === item.id ? 'active' : 'inactive')}"
                 >
                     <i data-lucide="${item.icon}" class="w-5 h-5"></i>
                     <span class="ml-3">${item.label}</span>
@@ -661,10 +727,10 @@
             ];
 
             return `
-                <div class="p-6 bg-gray-800 rounded-xl shadow-2xl space-y-3 border-l-4 border-indigo-500 exercise-card">
-                    <h3 class="text-xl font-bold text-white">${exercise.name}</h3>
+                <div class="p-6 ${getThemeColorClass('card-bg')} rounded-xl shadow-2xl space-y-3 border-l-4 border-indigo-500 exercise-card">
+                    <h3 class="text-xl font-bold ${getThemeColorClass('text-primary')}">${exercise.name}</h3>
                     <p class="text-indigo-400 font-semibold">${exercise.setsReps}</p>
-                    <p class="text-gray-400">${exercise.function}</p>
+                    <p class="${getThemeColorClass('text-secondary')}">${exercise.function}</p>
 
                     <div class="flex flex-wrap gap-3 pt-2">
                         ${buttons.map((btn) => `
@@ -672,7 +738,7 @@
                                 data-action="${btn.type}"
                                 data-name="${exercise.name}"
                                 id="btn-${safeName}-${btn.type}"
-                                class="flex-1 min-w-[150px] py-2 px-3 rounded-lg bg-gray-700 text-indigo-300 text-sm font-medium hover:bg-gray-600 transition duration-200 ai-button ai-delegated-button"
+                                class="flex-1 min-w-[150px] py-2 px-3 rounded-lg ${currentTheme === 'dark' ? 'bg-gray-700 text-indigo-300 hover:bg-gray-600' : 'bg-gray-200 text-indigo-700 hover:bg-gray-300'} text-sm font-medium transition duration-200 ai-button ai-delegated-button"
                             >
                                 <i data-lucide="sparkles" class="w-4 h-4 mr-2"></i>
                                 ${btn.label}
@@ -711,9 +777,9 @@
             // OBS: A lógica de clique agora é tratada por delegação em handleDelegatedClick
             let html = `
                 <div class="space-y-10">
-                    <h1 class="text-4xl font-extrabold text-white border-b border-indigo-500 pb-3">${dayData.title}</h1>
-                    <div id="dailyTipContainer" class="p-6 bg-gray-800 rounded-xl shadow-2xl space-y-4">
-                        <h2 class="text-2xl font-extrabold text-white flex items-center">
+                    <h1 class="text-4xl font-extrabold text-indigo-500 border-b border-indigo-500 pb-3">${dayData.title}</h1>
+                    <div id="dailyTipContainer" class="p-6 ${getThemeColorClass('card-bg')} rounded-xl shadow-2xl space-y-4">
+                        <h2 class="text-2xl font-extrabold text-indigo-400 flex items-center">
                             <i data-lucide="sparkles" class="w-6 h-6 mr-2 text-indigo-400"></i>
                             Dica do Dia com IA
                         </h2>
@@ -736,14 +802,17 @@
 
 
         const renderPage = (pageId) => {
+            const cardBgClass = getThemeColorClass('card-bg');
+            const textSecondary = getThemeColorClass('text-secondary');
+            
             switch (pageId) {
                 case PAGES.OVERVIEW:
                     return `
                         <div class="space-y-10">
                             ${renderProfileForm()}
-                            <div class="p-6 bg-gray-800 rounded-xl shadow-2xl space-y-4">
-                                <h2 class="text-2xl font-extrabold text-white">Estrutura da Semana</h2>
-                                <p class="text-gray-400">Plano de 3 dias, focado em hipertrofia e manutenção. Adapte os dias de descanso conforme sua recuperação.</p>
+                            <div class="p-6 ${cardBgClass} rounded-xl shadow-2xl space-y-4">
+                                <h2 class="text-2xl font-extrabold text-indigo-400">Estrutura da Semana</h2>
+                                <p class="${textSecondary}">Plano de 3 dias, focado em hipertrofia e manutenção. Adapte os dias de descanso conforme sua recuperação.</p>
                                 <div class="grid grid-cols-2 md:grid-cols-7 gap-4 text-center mt-6">
                                     ${[
                                         { day: 'Dia 1', focus: 'Superior', color: 'bg-indigo-600' },
@@ -761,9 +830,9 @@
                                     `).join('')}
                                 </div>
                             </div>
-                            <div class="p-6 bg-gray-800 rounded-xl shadow-2xl">
-                                <h2 class="text-2xl font-extrabold text-white">Foco Muscular do Plano</h2>
-                                <div class="h-40 bg-gray-700 rounded-lg flex items-center justify-center text-gray-500 mt-4">
+                            <div class="p-6 ${cardBgClass} rounded-xl shadow-2xl">
+                                <h2 class="text-2xl font-extrabold text-indigo-400">Foco Muscular do Plano</h2>
+                                <div class="h-40 ${currentTheme === 'dark' ? 'bg-gray-700' : 'bg-gray-200'} rounded-lg flex items-center justify-center text-gray-500 mt-4">
                                     [Gráfico de distribuição muscular - Placeholder]
                                 </div>
                             </div>
@@ -776,18 +845,18 @@
                 case PAGES.DAY2:
                     return `
                         <div class="space-y-10">
-                            <h1 class="text-4xl font-extrabold text-white border-b border-indigo-500 pb-3">Dia 2: Cardio e Recuperação Ativa</h1>
-                            <div class="p-6 bg-gray-800 rounded-xl shadow-2xl space-y-4">
-                                <h2 class="text-2xl font-extrabold text-white">Opção 1: Cardio Contínuo (LISS)</h2>
-                                <ul class="list-disc list-inside text-gray-400 ml-4 space-y-2">
-                                    <li><span class="font-semibold text-white">Corrida:</span> 30-45 minutos em intensidade moderada.</li>
-                                    <li><span class="font-semibold text-white">Bicicleta:</span> 45-60 minutos em terreno variado.</li>
+                            <h1 class="text-4xl font-extrabold text-indigo-500 border-b border-indigo-500 pb-3">Dia 2: Cardio e Recuperação Ativa</h1>
+                            <div class="p-6 ${cardBgClass} rounded-xl shadow-2xl space-y-4">
+                                <h2 class="text-2xl font-extrabold text-indigo-400">Opção 1: Cardio Contínuo (LISS)</h2>
+                                <ul class="list-disc list-inside ${textSecondary} ml-4 space-y-2">
+                                    <li><span class="font-semibold ${getThemeColorClass('text-primary')}">Corrida:</span> 30-45 minutos em intensidade moderada.</li>
+                                    <li><span class="font-semibold ${getThemeColorClass('text-primary')}">Bicicleta:</span> 45-60 minutos em terreno variado.</li>
                                 </ul>
                             </div>
-                            <div class="p-6 bg-gray-800 rounded-xl shadow-2xl space-y-4">
-                                <h2 class="text-2xl font-extrabold text-white">Opção 2: HIIT (Alternativa)</h2>
-                                <ul class="list-disc list-inside text-gray-400 ml-4 space-y-2">
-                                    <li><span class="font-semibold text-white">Exemplo na esteira (20 min):</span> 5 min aquecimento, 8x (1 min forte + 1 min caminhada), 4 min desaquecimento.</li>
+                            <div class="p-6 ${cardBgClass} rounded-xl shadow-2xl space-y-4">
+                                <h2 class="text-2xl font-extrabold text-indigo-400">Opção 2: HIIT (Alternativa)</h2>
+                                <ul class="list-disc list-inside ${textSecondary} ml-4 space-y-2">
+                                    <li><span class="font-semibold ${getThemeColorClass('text-primary')}">Exemplo na esteira (20 min):</span> 5 min aquecimento, 8x (1 min forte + 1 min caminhada), 4 min desaquecimento.</li>
                                 </ul>
                             </div>
                         </div>
@@ -804,15 +873,19 @@
         };
 
         const renderNutritionPage = () => {
+            const cardBgClass = getThemeColorClass('card-bg');
+            const inputBgClass = getThemeColorClass('input-bg');
+            const textSecondary = getThemeColorClass('text-secondary');
+
             // Lógica para Analisador de Refeição
             const mealAnalyzerHtml = `
-                <div class="p-6 bg-gray-800 rounded-xl shadow-2xl space-y-4">
-                    <h2 class="text-2xl font-extrabold text-white flex items-center">
+                <div class="p-6 ${cardBgClass} rounded-xl shadow-2xl space-y-4">
+                    <h2 class="text-2xl font-extrabold text-indigo-400 flex items-center">
                         <i data-lucide="utensils" class="w-6 h-6 mr-2 text-indigo-400"></i>
                         Analisador de Refeição com IA
                     </h2>
-                    <p class="text-gray-400">Descreva uma refeição que você fez e a IA irá fornecer uma estimativa de calorias e macros.</p>
-                    <textarea id="mealDescription" rows="4" placeholder="Ex: 150g de peito de frango grelhado, uma xícara de arroz integral e meia batata-doce cozida." class="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:ring-indigo-500 focus:border-indigo-500"></textarea>
+                    <p class="${textSecondary}">Descreva uma refeição que você fez e a IA irá fornecer uma estimativa de calorias e macros.</p>
+                    <textarea id="mealDescription" rows="4" placeholder="Ex: 150g de peito de frango grelhado, uma xícara de arroz integral e meia batata-doce cozida." class="w-full p-3 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 ${inputBgClass}"></textarea>
                     <button data-action="analyze-meal" id="btnMealAnalyze" class="w-full py-3 px-4 rounded-lg bg-indigo-600 text-white font-bold hover:bg-indigo-700 transition duration-300 ai-button ai-delegated-button">
                         <i data-lucide="zap" class="w-5 h-5 mr-2"></i> Analisar Refeição
                     </button>
@@ -822,13 +895,13 @@
 
             // Lógica para Criador de Receitas
             const recipeCreatorHtml = `
-                <div class="p-6 bg-gray-800 rounded-xl shadow-2xl space-y-4">
-                    <h2 class="text-2xl font-extrabold text-white flex items-center">
+                <div class="p-6 ${cardBgClass} rounded-xl shadow-2xl space-y-4">
+                    <h2 class="text-2xl font-extrabold text-indigo-400 flex items-center">
                         <i data-lucide="utensils" class="w-6 h-6 mr-2 text-indigo-400"></i>
                         Criador de Receitas com IA
                     </h2>
-                    <p class="text-gray-400">Liste os ingredientes que tem em casa e a IA cria uma receita saudável para você!</p>
-                    <textarea id="ingredientsList" rows="4" placeholder="Ex: Peito de frango, batata-doce, brócolis, azeite, alho." class="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:ring-indigo-500 focus:border-indigo-500"></textarea>
+                    <p class="${textSecondary}">Liste os ingredientes que tem em casa e a IA cria uma receita saudável para você!</p>
+                    <textarea id="ingredientsList" rows="4" placeholder="Ex: Peito de frango, batata-doce, brócolis, azeite, alho." class="w-full p-3 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 ${inputBgClass}"></textarea>
                     <button data-action="generate-recipe" id="btnGenerateRecipe" class="w-full py-3 px-4 rounded-lg bg-indigo-600 text-white font-bold hover:bg-indigo-700 transition duration-300 ai-button ai-delegated-button">
                         <i data-lucide="sparkles" class="w-5 h-5 mr-2"></i> Criar Receita Saudável
                     </button>
@@ -836,18 +909,14 @@
                 </div>
             `;
             
-            // Adiciona listeners para Nutrição (A delegação simplifica a lógica de binding)
-            // OBS: A vinculação direta de listeners é removida aqui, pois a delegação assume.
-            // A exceção é o formulário de perfil, que mantém o listener direto no DOMContentLoaded.
-
             return `
                 <div class="space-y-10">
-                    <h1 class="text-4xl font-extrabold text-white border-b border-indigo-500 pb-3">Plano de Nutrição & Ferramentas IA</h1>
+                    <h1 class="text-4xl font-extrabold text-indigo-500 border-b border-indigo-500 pb-3">Plano de Nutrição & Ferramentas IA</h1>
                     ${mealAnalyzerHtml}
                     ${recipeCreatorHtml}
-                    <div class="p-6 bg-gray-800 rounded-xl shadow-2xl space-y-4">
-                        <h2 class="text-2xl font-extrabold text-white">Plano de Nutrição Sugerido</h2>
-                        <div class="space-y-4 text-gray-400">
+                    <div class="p-6 ${cardBgClass} rounded-xl shadow-2xl space-y-4">
+                        <h2 class="text-2xl font-extrabold text-indigo-400">Plano de Nutrição Sugerido</h2>
+                        <div class="space-y-4 ${textSecondary}">
                             <h4 class="text-xl font-bold text-indigo-400">Café da Manhã</h4>
                             <p>Aveia cozida com leite de amêndoes, banana e manteiga de amendoim.</p>
                             <h4 class="text-xl font-bold text-indigo-400">Almoço</h4>
@@ -913,10 +982,10 @@
                 const json = apiResult.json;
                 
                 let content = `<p class="text-indigo-400 font-semibold mb-2">Macros Estimados: ${json.macros || 'N/A'}</p>`;
-                content += `<h4 class="text-lg font-bold text-white mt-4">Ingredientes:</h4><ul class="list-disc list-inside ml-2">`;
+                content += `<h4 class="text-lg font-bold text-indigo-400 mt-4">Ingredientes:</h4><ul class="list-disc list-inside ml-2">`;
                 json.ingredientes?.forEach(ing => content += `<li>${ing}</li>`);
                 content += `</ul>`;
-                content += `<h4 class="text-lg font-bold text-white mt-4">Instruções:</h4><ol class="list-decimal list-inside ml-2 space-y-1">`;
+                content += `<h4 class="text-lg font-bold text-indigo-400 mt-4">Instruções:</h4><ol class="list-decimal list-inside ml-2 space-y-1">`;
                 json.instrucoes?.forEach(inst => content += `<li>${inst}</li>`);
                 content += `</ol>`;
 
@@ -1053,17 +1122,20 @@
 
 
         const renderAiToolsPage = () => {
+            const cardBgClass = getThemeColorClass('card-bg');
+            const inputBgClass = getThemeColorClass('input-bg');
+            const textSecondary = getThemeColorClass('text-secondary');
              // Lógica para Ajuste de Plano
             const planAdjusterHtml = `
-                <div class="p-6 bg-gray-800 rounded-xl shadow-2xl space-y-4">
-                    <h2 class="text-2xl font-extrabold text-white flex items-center">
+                <div class="p-6 ${cardBgClass} rounded-xl shadow-2xl space-y-4">
+                    <h2 class="text-2xl font-extrabold text-indigo-400 flex items-center">
                         <i data-lucide="settings" class="w-6 h-6 mr-2 text-indigo-400"></i>
                         Ajuste seu Plano com IA
                     </h2>
-                    <p class="text-gray-400">Selecione um novo foco para a IA sugerir 3 modificações de alto impacto no seu treino.</p>
+                    <p class="${textSecondary}">Selecione um novo foco para a IA sugerir 3 modificações de alto impacto no seu treino.</p>
                     <label class="block">
-                        <span class="text-sm font-medium text-gray-300">Meu novo objetivo:</span>
-                        <select id="planAdjustGoal" class="mt-1 block w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-indigo-500 focus:border-indigo-500">
+                        <span class="text-sm font-medium ${textSecondary}">Meu novo objetivo:</span>
+                        <select id="planAdjustGoal" class="mt-1 block w-full px-4 py-2 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 ${inputBgClass}">
                             <option>Aumentar Força Máxima</option>
                             <option>Melhorar Resistência Muscular</option>
                             <option>Otimizar para Perda de Gordura</option>
@@ -1079,13 +1151,13 @@
 
              // Lógica para Planejador de Metas Semanal
             const goalPlannerHtml = `
-                <div class="p-6 bg-gray-800 rounded-xl shadow-2xl space-y-4">
-                    <h2 class="text-2xl font-extrabold text-white flex items-center">
+                <div class="p-6 ${cardBgClass} rounded-xl shadow-2xl space-y-4">
+                    <h2 class="text-2xl font-extrabold text-indigo-400 flex items-center">
                         <i data-lucide="target" class="w-6 h-6 mr-2 text-indigo-400"></i>
                         Planejador de Metas Semanal
                     </h2>
-                    <p class="text-gray-400">Defina sua intenção para a semana e deixe a IA te ajudar a criar um plano de ação SMART.</p>
-                    <textarea id="weeklyGoal" rows="3" placeholder="Ex: Quero melhorar meu Agachamento em 5kg até o final da semana." class="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:ring-indigo-500 focus:border-indigo-500"></textarea>
+                    <p class="${textSecondary}">Defina sua intenção para a semana e deixe a IA te ajudar a criar um plano de ação SMART.</p>
+                    <textarea id="weeklyGoal" rows="3" placeholder="Ex: Quero melhorar meu Agachamento em 5kg até o final da semana." class="w-full p-3 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 ${inputBgClass}"></textarea>
                     <button data-action="plan-goal" id="btnGoalPlanner" class="w-full py-3 px-4 rounded-lg bg-indigo-600 text-white font-bold hover:bg-indigo-700 transition duration-300 ai-button ai-delegated-button">
                         <i data-lucide="sparkles" class="w-5 h-5 mr-2"></i> Planejar Minha Semana
                     </button>
@@ -1095,27 +1167,27 @@
 
              // Lógica para Treino Rápido
             const quickWorkoutHtml = `
-                <div class="p-6 bg-gray-800 rounded-xl shadow-2xl space-y-4">
-                    <h2 class="text-2xl font-extrabold text-white flex items-center">
+                <div class="p-6 ${cardBgClass} rounded-xl shadow-2xl space-y-4">
+                    <h2 class="text-2xl font-extrabold text-indigo-400 flex items-center">
                         <i data-lucide="clock" class="w-6 h-6 mr-2 text-indigo-400"></i>
                         Treino Rápido com IA
                     </h2>
-                    <p class="text-gray-400">Sem tempo? Gere um treino eficaz com base no seu equipamento e tempo disponível.</p>
+                    <p class="${textSecondary}">Sem tempo? Gere um treino eficaz com base no seu equipamento e tempo disponível.</p>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <label class="block">
-                            <span class="text-sm font-medium text-gray-300">Tempo Disponível</span>
-                            <select id="quickWorkoutTime" class="mt-1 block w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-indigo-500 focus:border-indigo-500">
+                            <span class="text-sm font-medium ${textSecondary}">Tempo Disponível</span>
+                            <select id="quickWorkoutTime" class="mt-1 block w-full px-4 py-2 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 ${inputBgClass}">
                                 <option>15 Minutos</option>
                                 <option>20 Minutos</option>
                                 <option>30 Minutos</option>
                             </select>
                         </label>
                         <label class="block">
-                            <span class="text-sm font-medium text-gray-300">Equipamento Disponível</span>
-                            <select id="quickWorkoutEquipment" class="mt-1 block w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-indigo-500 focus:border-indigo-500">
+                            <span class="text-sm font-medium ${textSecondary}">Equipamento Disponível</span>
+                            <select id="quickWorkoutEquipment" class="mt-1 block w-full px-4 py-2 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 ${inputBgClass}">
                                 <option>Apenas Peso do Corpo</option>
                                 <option>Halteres Leves</option>
-                                <option>Elásticos de Resistência</option>
+                            <option>Elásticos de Resistência</option>
                             </select>
                         </label>
                     </div>
@@ -1128,15 +1200,15 @@
 
             // Lógica para Rotina de Mobilidade
             const mobilityRoutineHtml = `
-                <div class="p-6 bg-gray-800 rounded-xl shadow-2xl space-y-4">
-                    <h2 class="text-2xl font-extrabold text-white flex items-center">
+                <div class="p-6 ${cardBgClass} rounded-xl shadow-2xl space-y-4">
+                    <h2 class="text-2xl font-extrabold text-indigo-400 flex items-center">
                         <i data-lucide="move" class="w-6 h-6 mr-2 text-indigo-400"></i>
                         Sua Rotina de Mobilidade com IA
                     </h2>
-                    <p class="text-gray-400">Gere uma rotina rápida para prevenção de lesões e melhoria da flexibilidade.</p>
+                    <p class="${textSecondary}">Gere uma rotina rápida para prevenção de lesões e melhoria da flexibilidade.</p>
                     <label class="block">
-                        <span class="text-sm font-medium text-gray-300">Qual área você quer focar hoje?</span>
-                        <select id="mobilityFocus" class="mt-1 block w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-indigo-500 focus:border-indigo-500">
+                        <span class="text-sm font-medium ${textSecondary}">Qual área você quer focar hoje?</span>
+                        <select id="mobilityFocus" class="mt-1 block w-full px-4 py-2 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 ${inputBgClass}">
                             <option>Ombros e Pescoço</option>
                             <option>Coluna Torácica</option>
                             <option selected>Quadril e Lombar</option>
@@ -1152,13 +1224,13 @@
 
             // Lógica para Diário de Progresso Semanal
             const progressDiaryHtml = `
-                <div class="p-6 bg-gray-800 rounded-xl shadow-2xl space-y-4">
-                    <h2 class="text-2xl font-extrabold text-white flex items-center">
+                <div class="p-6 ${cardBgClass} rounded-xl shadow-2xl space-y-4">
+                    <h2 class="text-2xl font-extrabold text-indigo-400 flex items-center">
                         <i data-lucide="book-open" class="w-6 h-6 mr-2 text-indigo-400"></i>
                         Diário de Progresso Semanal
                     </h2>
-                    <p class="text-gray-400">Anote como foi sua semana de treinos. A IA irá resumir seu progresso e te dar motivação!</p>
-                    <textarea id="progressNotes" rows="6" placeholder="Ex: Consegui levantar mais peso no Supino, mas senti dificuldade no agachamento. Minha dieta foi 80% limpa, mas falhei no sábado..." class="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:ring-indigo-500 focus:border-indigo-500"></textarea>
+                    <p class="${textSecondary}">Anote como foi sua semana de treinos. A IA irá resumir seu progresso e te dar motivação!</p>
+                    <textarea id="progressNotes" rows="6" placeholder="Ex: Consegui levantar mais peso no Supino, mas senti dificuldade no agachamento. Minha dieta foi 80% limpa, mas falhei no sábado..." class="w-full p-3 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 ${inputBgClass}"></textarea>
                     <button data-action="analyze-progress" id="btnAnalyzeProgress" class="w-full py-3 px-4 rounded-lg bg-indigo-600 text-white font-bold hover:bg-indigo-700 transition duration-300 ai-button ai-delegated-button">
                         <i data-lucide="sparkles" class="w-5 h-5 mr-2"></i> Analisar Progresso com IA
                     </button>
@@ -1166,14 +1238,9 @@
                 </div>
             `;
             
-            // Adiciona listeners para Ferramentas IA (usando delegação e listeners diretos para inputs)
-            // OBS: Removemos os listeners diretos aqui, pois a lógica foi movida para a função handleDelegatedClick.
-            // Apenas o binding do chat (que é mais complexo) e o do formulário de perfil se mantêm fora da delegação,
-            // sendo tratados dentro de renderFaqPage e handleProfileSave, respectivamente.
-            
             return `
                 <div class="space-y-10">
-                    <h1 class="text-4xl font-extrabold text-white border-b border-indigo-500 pb-3">Outras Ferramentas IA Essenciais</h1>
+                    <h1 class="text-4xl font-extrabold text-indigo-500 border-b border-indigo-500 pb-3">Outras Ferramentas IA Essenciais</h1>
                     ${planAdjusterHtml}
                     ${goalPlannerHtml}
                     ${quickWorkoutHtml}
@@ -1224,6 +1291,8 @@
 
         const renderChatMessages = (container) => {
             const chatBox = container.closest('.flex-col').querySelector('.chat-messages');
+            const cardBgClass = getThemeColorClass('card-bg');
+            const textSecondary = getThemeColorClass('text-secondary');
             
             chatBox.innerHTML = chatMessages.map((msg, index) => {
                 const isUser = msg.role === 'user';
@@ -1232,7 +1301,7 @@
                         <div class="max-w-xs md:max-w-md lg:max-w-lg p-3 rounded-xl shadow-md ${
                             isUser 
                                 ? 'bg-indigo-600 text-white rounded-br-none' 
-                                : 'bg-gray-700 text-gray-200 rounded-tl-none'
+                                : `${currentTheme === 'dark' ? 'bg-gray-700' : 'bg-gray-200'} ${textSecondary} rounded-tl-none`
                         }">
                             ${msg.content}
                         </div>
@@ -1241,7 +1310,7 @@
             }).join('');
             
             if (chatMessages.length === 0) {
-                 chatBox.innerHTML = `<div class="text-center p-8 bg-gray-700/50 rounded-lg text-gray-400">
+                 chatBox.innerHTML = `<div class="text-center p-8 ${cardBgClass} rounded-lg ${textSecondary}">
                     Olá ${profile.name || 'usuário'}! Pergunte sobre treino, nutrição ou bem-estar.
                 </div>`;
             }
@@ -1250,6 +1319,9 @@
         };
 
         const renderFaqPage = () => {
+            const cardBgClass = getThemeColorClass('card-bg');
+            const inputBgClass = getThemeColorClass('input-bg');
+
              // Limpa o histórico de chat ao entrar na página, se não for a primeira vez
             if (currentPage !== PAGES.FAQ) {
                  chatMessages = [];
@@ -1280,9 +1352,9 @@
 
             return `
                 <div class="space-y-10">
-                    <h1 class="text-4xl font-extrabold text-white border-b border-indigo-500 pb-3">Tire suas Dúvidas com a IA</h1>
-                    <div id="chatContainer" class="flex flex-col h-[500px] p-6 bg-gray-800 rounded-xl shadow-2xl">
-                        <h2 class="text-2xl font-extrabold text-white mb-4 flex items-center">
+                    <h1 class="text-4xl font-extrabold text-indigo-500 border-b border-indigo-500 pb-3">Tire suas Dúvidas com a IA</h1>
+                    <div id="chatContainer" class="flex flex-col h-[500px] p-6 ${cardBgClass} rounded-xl shadow-2xl">
+                        <h2 class="text-2xl font-extrabold text-indigo-400 mb-4 flex items-center">
                             <i data-lucide="message-square" class="w-6 h-6 mr-2 text-indigo-400"></i>
                             Assistente de Fitness IA
                         </h2>
@@ -1294,7 +1366,7 @@
                                 id="chatInput"
                                 type="text"
                                 placeholder="Faça sua pergunta aqui..."
-                                class="flex-grow p-3 bg-gray-700 border border-gray-600 rounded-l-lg text-white placeholder-gray-500 focus:ring-indigo-500 focus:border-indigo-500"
+                                class="flex-grow p-3 rounded-l-lg focus:ring-indigo-500 focus:border-indigo-500 ${inputBgClass}"
                             />
                             <button
                                 id="btnChatSend"
@@ -1310,6 +1382,9 @@
         
         const renderContent = () => {
             const container = document.getElementById('contentContainer');
+            // Aplica a classe de fundo principal para o container de conteúdo
+            container.className = `lg:col-span-3 p-6 rounded-xl transition-colors duration-300 ${getThemeColorClass('main-bg')}`;
+            
             container.innerHTML = renderPage(currentPage);
             
             // Re-binds profile form listener after rendering
@@ -1323,15 +1398,26 @@
             if (typeof lucide !== 'undefined' && lucide.createIcons) {
                 recreateLucideIcons({ attrs: { class: 'w-5 h-5' } });
                 recreateLucideIcons({ attrs: { class: 'w-6 h-6' } });
+                recreateLucideIcons({ attrs: { class: 'w-10 h-10' } });
             }
         };
 
-        // --- 4. Inicialização da Aplicação ---
+        // --- 4. Inicialização da Aplicação (REESTRUTURADA PARA FIREBASE) ---
 
         const initializeAppLogic = () => {
+             // Carrega e aplica o tema salvo antes de qualquer renderização
+            const savedTheme = localStorage.getItem('app-theme') || 'dark';
+            applyTheme(savedTheme);
+            
+            // Adiciona listener para o toggle de tema
+            document.getElementById('themeToggle').addEventListener('click', toggleTheme);
+
+
             if (!firebaseConfig.apiKey) {
-                console.error("Configuração do Firebase ausente.");
-                document.getElementById('contentContainer').innerHTML = '<div>Erro: Configuração do Firebase ausente.</div>';
+                console.error("Configuração do Firebase ausente. Usando 'default-app-id'.");
+                // Permite que a aplicação continue a ser renderizada sem persistência de dados
+                authReady = true;
+                renderApp();
                 return;
             }
 
@@ -1345,7 +1431,7 @@
                     currentUserId = user.uid;
                     document.getElementById('userIdDisplay').textContent = currentUserId;
                     
-                    // 2. Carregar Perfil do Usuário
+                    // 2. Carregar Perfil do Usuário (em tempo real)
                     const profileDocRef = doc(db, `artifacts/${appId}/users/${currentUserId}/profile/main`);
                     onSnapshot(profileDocRef, (docSnap) => {
                         if (docSnap.exists()) {
