@@ -69,7 +69,7 @@
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
         // Configurações da API Gemini
-        const GEMINI_API_KEY = "";
+        const GEMINI_API_KEY = "AIzaSyBeJaGLve3Bg43aoDe4izcTnd5Wtqf-4ao";
         const GEMINI_MODEL = "gemini-2.5-flash-preview-05-20";
         const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
 
@@ -449,10 +449,11 @@
             const name = button.getAttribute('data-name');
             const originalText = button.innerHTML;
             
-            const contentContainer = document.getElementById('contentContainer');
-            
             if (!action) return;
 
+            // Variável para conter o container pai da ação
+            const actionContainer = button.closest('.space-y-4, .space-y-10');
+            
             // --- Lógica da Dica do Dia ---
             if (action === 'daily-tip-text' || action === 'read-tip-tts') {
                 const resultContainer = document.getElementById('dailyTipResult');
@@ -462,13 +463,12 @@
                     if (lastTipText) {
                          button.innerHTML = LoadingIndicator('Gerando Áudio...');
                          button.disabled = true;
-                         // O fetchTTS fará o reset do botão
                          fetchTTS(lastTipText, button, originalText);
                     } else {
                         resultContainer.innerHTML = AiResultBox("Erro", "Primeiro, gere a Dica do Dia (Texto) para que a IA possa lê-la.");
                         recreateLucideIcons({ attrs: { class: 'w-5 h-5' } });
                     }
-                    return; // Sai após o TTS
+                    return; 
                 }
 
                 // Lógica para gerar o texto da dica (daily-tip-text)
@@ -494,7 +494,7 @@
                 }
             } 
             
-            // --- Lógica para Botões de Exercício ---
+            // --- Lógica para Botões de Exercício (Detalhes) ---
             else if (name) {
                 // Exercise Specific Logic (Explanation, Variation, Form)
                 const type = action;
@@ -545,6 +545,63 @@
                 } finally {
                     button.innerHTML = originalText;
                     button.disabled = false;
+                }
+            }
+            
+            // --- Lógica das Ferramentas da Página AI_TOOLS e NUTRITION ---
+            else if (actionContainer) {
+                let inputElement, resultContainer, handler;
+
+                switch (action) {
+                    case 'analyze-meal':
+                        inputElement = actionContainer.querySelector('#mealDescription');
+                        resultContainer = actionContainer.querySelector('#mealAnalyzerResult');
+                        handler = handleMealAnalyze;
+                        break;
+                    case 'generate-recipe':
+                        inputElement = actionContainer.querySelector('#ingredientsList');
+                        resultContainer = actionContainer.querySelector('#recipeCreatorResult');
+                        handler = handleGenerateRecipe;
+                        break;
+                    case 'quick-workout':
+                        const timeSelect = actionContainer.querySelector('#quickWorkoutTime');
+                        const equipmentSelect = actionContainer.querySelector('#quickWorkoutEquipment');
+                        resultContainer = actionContainer.querySelector('#quickWorkoutResult');
+                        handler = () => handleQuickWorkoutGenerate(button, timeSelect, equipmentSelect, resultContainer);
+                        break;
+                    case 'generate-mobility':
+                        inputElement = actionContainer.querySelector('#mobilityFocus');
+                        resultContainer = actionContainer.querySelector('#mobilityResult');
+                        handler = () => handleMobilityGenerate(button, inputElement, resultContainer);
+                        break;
+                    case 'analyze-progress':
+                        inputElement = actionContainer.querySelector('#progressNotes');
+                        resultContainer = actionContainer.querySelector('#progressResult');
+                        handler = handleAnalyzeProgress;
+                        break;
+                    case 'adjust-plan':
+                        inputElement = actionContainer.querySelector('#planAdjustGoal');
+                        resultContainer = actionContainer.querySelector('#planAdjustResult');
+                        handler = () => handlePlanAdjust(button, inputElement, resultContainer);
+                        break;
+                    case 'plan-goal':
+                        inputElement = actionContainer.querySelector('#weeklyGoal');
+                        resultContainer = actionContainer.querySelector('#goalPlannerResult');
+                        handler = handleGoalPlanner;
+                        break;
+                    default:
+                        return;
+                }
+
+                // Executa o handler apropriado (diretamente ou com base nos inputs)
+                if (handler) {
+                    if (action === 'quick-workout' || action === 'generate-mobility' || action === 'adjust-plan' || action === 'plan-goal') {
+                        handler();
+                    } else if (inputElement) {
+                        handler(button, inputElement, resultContainer);
+                    } else {
+                        console.error("Handler configuration error for action:", action);
+                    }
                 }
             }
         };
@@ -767,19 +824,8 @@
             `;
             
             // Adiciona listeners para Nutrição (A delegação simplifica a lógica de binding)
-            setTimeout(() => {
-                document.getElementById('btnMealAnalyze').addEventListener('click', () => handleMealAnalyze(
-                    document.getElementById('btnMealAnalyze'), 
-                    document.getElementById('mealDescription'), 
-                    document.getElementById('mealAnalyzerResult')
-                ));
-
-                document.getElementById('btnGenerateRecipe').addEventListener('click', () => handleGenerateRecipe(
-                    document.getElementById('btnGenerateRecipe'), 
-                    document.getElementById('ingredientsList'), 
-                    document.getElementById('recipeCreatorResult')
-                ));
-            }, 0);
+            // OBS: A vinculação direta de listeners é removida aqui, pois a delegação assume.
+            // A exceção é o formulário de perfil, que mantém o listener direto no DOMContentLoaded.
 
             return `
                 <div class="space-y-10">
@@ -1108,40 +1154,10 @@
             `;
             
             // Adiciona listeners para Ferramentas IA (usando delegação e listeners diretos para inputs)
-             setTimeout(() => {
-                document.getElementById('btnPlanAdjust').addEventListener('click', () => handlePlanAdjust(
-                    document.getElementById('btnPlanAdjust'),
-                    document.getElementById('planAdjustGoal'),
-                    document.getElementById('planAdjustResult')
-                ));
-
-                document.getElementById('btnGoalPlanner').addEventListener('click', () => handleGoalPlanner(
-                    document.getElementById('btnGoalPlanner'),
-                    document.getElementById('weeklyGoal'),
-                    document.getElementById('goalPlannerResult')
-                ));
-                
-                document.getElementById('btnQuickWorkout').addEventListener('click', () => handleQuickWorkoutGenerate(
-                    document.getElementById('btnQuickWorkout'),
-                    document.getElementById('quickWorkoutTime'),
-                    document.getElementById('quickWorkoutEquipment'),
-                    document.getElementById('quickWorkoutResult')
-                ));
-                
-                document.getElementById('btnMobilityGenerate').addEventListener('click', () => handleMobilityGenerate(
-                    document.getElementById('btnMobilityGenerate'),
-                    document.getElementById('mobilityFocus'),
-                    document.getElementById('mobilityResult')
-                ));
-
-                document.getElementById('btnAnalyzeProgress').addEventListener('click', () => handleAnalyzeProgress(
-                    document.getElementById('btnAnalyzeProgress'),
-                    document.getElementById('progressNotes'),
-                    document.getElementById('progressResult')
-                ));
-            }, 0);
-
-
+            // OBS: Removemos os listeners diretos aqui, pois a lógica foi movida para a função handleDelegatedClick.
+            // Apenas o binding do chat (que é mais complexo) e o do formulário de perfil se mantêm fora da delegação,
+            // sendo tratados dentro de renderFaqPage e handleProfileSave, respectivamente.
+            
             return `
                 <div class="space-y-10">
                     <h1 class="text-4xl font-extrabold text-white border-b border-indigo-500 pb-3">Outras Ferramentas IA Essenciais</h1>
