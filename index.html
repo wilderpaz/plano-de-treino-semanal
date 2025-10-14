@@ -519,7 +519,12 @@
                 const docRef = doc(db, `artifacts/${appId}/users/${currentUserId}/profile/main`);
                 await setDoc(docRef, profileData, { merge: true });
                 // O onSnapshot irá atualizar o estado "profile" e chamar renderContent()
-                
+               // adição do código para atualizar o estado da aplicação (COP)
+                profile = dadosPerfil;
+                authReady = true;
+                renderNavigation();
+                renderApp();
+
                 saveButton.innerHTML = '<i data-lucide="sparkles" class="w-5 h-5 mr-2"></i> Perfil Salvo!';
                 saveButton.classList.remove('bg-indigo-600');
                 saveButton.classList.add('bg-green-600');
@@ -1573,7 +1578,11 @@
                             currentPage = 'overview'; // Mantém na overview para ver o resultado
                         }
 
-                        authReady = true; // Marca como pronto após a primeira checagem de perfil
+                        // Código adicionado para salvar o pefil e iniciar (COP)
+                        profile = dadosPerfil; 
+                        authReady = true; // Marca como pronto após a primeira checagem de perfil                                               
+                        renderNavigation();
+                        renderApp();
                         renderApp();
 
                     }, (error) => {
