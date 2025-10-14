@@ -77,22 +77,11 @@
         setLogLevel('Debug');
 
         // Variáveis Globais de Ambiente (serão fornecidas pelo ambiente Canvas)
-        //const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};    
-        // Configuração do firebase
-        const firebaseConfig = {
-          apiKey: "AIzaSyAnxJqVhEnvdAMcmDTNjAU2G9MHxmAVNbY",
-          authDomain: "plano-de-treino-semanal.firebaseapp.com",
-          projectId: "plano-de-treino-semanal",
-          storageBucket: "plano-de-treino-semanal.firebasestorage.app",
-          messagingSenderId: "70819701777",
-          appId: "1:70819701777:web:c6ebc648e91c018d787db0",
-          measurementId: "G-ETJ9R7HHGF"
-        };
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
         const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
         // Configurações da API Gemini
-        // Verifica se há uma chave definida no ambiente externo (por exemplo, injetada por um script de build).
         const externalGeminiKey = typeof __gemini_api_key_override !== 'undefined' ? __gemini_api_key_override : "";
         const GEMINI_API_KEY = externalGeminiKey; 
         const GEMINI_MODEL = "gemini-2.5-flash-preview-05-20";
@@ -518,22 +507,16 @@
                 // Caminho Firestore: /artifacts/{appId}/users/{userId}/profile/main
                 const docRef = doc(db, `artifacts/${appId}/users/${currentUserId}/profile/main`);
                 await setDoc(docRef, profileData, { merge: true });
-                // O onSnapshot irá atualizar o estado "profile" e chamar renderContent()
-                // adição do código para atualizar o estado da aplicação (COP)
-                // Atualiza o estado do app após salvar
-                profile = profileData;
-                authReady = true;
-                renderNavigation();
-                renderApp();
-
-
-                saveButton.innerHTML = '<i data-lucide="sparkles" class="w-5 h-5 mr-2"></i> Perfil Salvo!';
-                saveButton.classList.remove('bg-indigo-600');
-                saveButton.classList.add('bg-green-600');
                 
                 // Força a navegação para Visão Geral após salvar e desbloquear
                 currentPage = PAGES.OVERVIEW;
 
+                // O onSnapshot carregará os novos dados e chamará renderApp (não precisamos chamar manualmente)
+                // Apenas atualizamos a interface do botão
+                saveButton.innerHTML = '<i data-lucide="sparkles" class="w-5 h-5 mr-2"></i> Perfil Salvo!';
+                saveButton.classList.remove('bg-indigo-600');
+                saveButton.classList.add('bg-green-600');
+                
                 setTimeout(() => {
                     saveButton.innerHTML = '<i data-lucide="sparkles" class="w-5 h-5 mr-2"></i> Salvar Perfil e Iniciar';
                     saveButton.classList.remove('bg-green-600');
@@ -1531,30 +1514,22 @@
         // --- 4. Inicialização da Aplicação (REESTRUTURADA PARA FIREBASE) ---
 
         const initializeAppLogic = () => {
-             // Carrega e aplica o tema salvo antes de qualquer renderização
+            // Carrega e aplica o tema salvo antes de qualquer renderização
             const savedTheme = localStorage.getItem('app-theme') || 'dark';
             applyTheme(savedTheme);
             
             // Adiciona listener para o toggle de tema
             document.getElementById('themeToggle').addEventListener('click', toggleTheme);
 
-                if (!firebaseConfig.apiKey) {
-                  currentUserId = 'anon-no-firestore';
-                  document.getElementById('userIdDisplay').textContent = currentUserId;
-                  renderApp();
-                  return;
-                }
-
-            // Conexão do Firebase com erro 
-            /* if (!firebaseConfig.apiKey) {
-                console.error("Configuração do Firebase ausente. Usando modo sem persistência.");
-                // Permite que a aplicação continue a ser renderizada sem persistência de dados
-                authReady = true;
-                currentUserId = 'anon-no-firestore';
-                document.getElementById('userIdDisplay').textContent = currentUserId;
-                renderApp();
-                return;
-            } */
+            // Se não houver apiKey, não podemos conectar ao Firestore. Entra no modo sem persistência.
+            if (!firebaseConfig.apiKey) {
+                 console.error("Configuração do Firebase ausente. Entrando no modo sem persistência (dados não serão salvos).");
+                 authReady = true;
+                 currentUserId = 'anon-no-firestore';
+                 document.getElementById('userIdDisplay').textContent = currentUserId;
+                 renderApp();
+                 return;
+            }
 
             const app = initializeApp(firebaseConfig);
             db = getFirestore(app);
@@ -1568,50 +1543,40 @@
                     
                     // 2. Carregar Perfil do Usuário (em tempo real)
                     const profileDocRef = doc(db, `artifacts/${appId}/users/${currentUserId}/profile/main`);
+                    
+                    // Configura o listener do perfil
                     onSnapshot(profileDocRef, (docSnap) => {
-                      if (docSnap.exists()) {
-                        profile = docSnap.data(); // carrega o perfil salvo
-                        authReady = true;
-                        renderNavigation();
-                        renderApp();
-                        console.log("Perfil carregado:", profile);
-                        console.log("App desbloqueado:", isAppUnlocked());
-                      } else {
-                        profile = {}; // perfil ainda não existe
-                      }
-                    });
-
-                        
-                        // Garante que o usuário veja a Visão Geral se acabou de salvar e desbloqueou
-                        if (isAppUnlocked() && currentPage === 'overview') {
-                            currentPage = 'overview'; // Mantém na overview para ver o resultado
+                        if (docSnap.exists()) {
+                            profile = docSnap.data();
+                        } else {
+                            profile = {}; 
                         }
-
-                        // Código adicionado para salvar o pefil e iniciar (COP)
-                        profile = dadosPerfil; 
-                        authReady = true; // Marca como pronto após a primeira checagem de perfil                                               
-                        renderNavigation();
+                        
+                        // Atualiza o estado de prontidão e renderiza
+                        authReady = true;
                         renderApp();
-                        renderApp();
-
+                        
                     }, (error) => {
-                        console.error("Erro ao escutar o perfil:", error);
+                        console.error("Erro ao escutar o perfil (onSnapshot):", error);
+                        // Em caso de erro na escuta, ainda consideramos a autenticação pronta
                         authReady = true;
                         renderApp();
                     });
+
                 } else {
-                    // Tenta autenticar
+                    // Tenta autenticar (apenas na primeira checagem, se user for null)
                     try {
                         if (initialAuthToken) {
-                            const userCredential = await signInWithCustomToken(auth, initialAuthToken);
-                            currentUserId = userCredential.user.uid;
+                            // Tenta logar com token customizado (ambiente Canvas)
+                            await signInWithCustomToken(auth, initialAuthToken);
                         } else {
-                            const userCredential = await signInAnonymously(auth);
-                            currentUserId = userCredential.user.uid;
+                            // Tenta logar anonimamente (ambiente externo sem token)
+                            await signInAnonymously(auth);
                         }
+                        // O onAuthStateChanged será chamado novamente com o novo usuário.
                     } catch (error) {
                         console.error("Erro na autenticação:", error);
-                        // Falha na autenticação, renderiza o app como anônimo sem ID do Firestore
+                        // Se a autenticação falhar, continua no modo anônimo sem dados de Firestore
                         authReady = true;
                         renderApp();
                     }
@@ -1633,44 +1598,5 @@
         document.addEventListener('DOMContentLoaded', initializeAppLogic);
 
     </script>
-
-    <script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.5.0/firebase-app.js";
-  import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.5.0/firebase-auth.js";
-
-  const firebaseConfig = {
-    apiKey: "AIzaSyAnxJqVhEnvdAMcmDTNjAU2G9MHxmAVNbY",
-    authDomain: "plano-de-treino-semanal.firebaseapp.com",
-    projectId: "plano-de-treino-semanal",
-    storageBucket: "plano-de-treino-semanal.appspot.com",
-    messagingSenderId: "70819701777",
-    appId: "1:70819701777:web:c6ebc648e91c018d787db0"
-  };
-
-  const app = initializeApp(firebaseConfig);
-  const auth = getAuth(app);
-  const provider = new GoogleAuthProvider();
-
-  // Botão de login
-  document.getElementById("loginBtn").addEventListener("click", () => {
-    signInWithPopup(auth, provider)
-      .then(result => {
-        const user = result.user;
-        document.getElementById("userIdDisplay").textContent = user.uid;
-        console.log("Usuário logado:", user.displayName);
-      })
-      .catch(error => {
-        console.error("Erro no login:", error);
-      });
-  });
-
-  // Detectar login automático
-  onAuthStateChanged(auth, user => {
-    if (user) {
-      document.getElementById("userIdDisplay").textContent = user.uid;
-    }
-  });
-</script>
-
 </body>
 </html>
