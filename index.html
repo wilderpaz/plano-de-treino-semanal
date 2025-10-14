@@ -77,7 +77,17 @@
         setLogLevel('Debug');
 
         // Variáveis Globais de Ambiente (serão fornecidas pelo ambiente Canvas)
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+        //const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};    
+        // Configuração do firebase
+        const firebaseConfig = {
+          apiKey: "AIzaSyAnxJqVhEnvdAMcmDTNjAU2G9MHxmAVNbY",
+          authDomain: "plano-de-treino-semanal.firebaseapp.com",
+          projectId: "plano-de-treino-semanal",
+          storageBucket: "plano-de-treino-semanal.firebasestorage.app",
+          messagingSenderId: "70819701777",
+          appId: "1:70819701777:web:c6ebc648e91c018d787db0",
+          measurementId: "G-ETJ9R7HHGF"
+        };
         const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
@@ -1521,8 +1531,15 @@
             // Adiciona listener para o toggle de tema
             document.getElementById('themeToggle').addEventListener('click', toggleTheme);
 
+                if (!firebaseConfig.apiKey) {
+                  currentUserId = 'anon-no-firestore';
+                  document.getElementById('userIdDisplay').textContent = currentUserId;
+                  renderApp();
+                  return;
+                }
 
-            if (!firebaseConfig.apiKey) {
+            // Conexão do Firebase com erro 
+            /* if (!firebaseConfig.apiKey) {
                 console.error("Configuração do Firebase ausente. Usando modo sem persistência.");
                 // Permite que a aplicação continue a ser renderizada sem persistência de dados
                 authReady = true;
@@ -1530,7 +1547,7 @@
                 document.getElementById('userIdDisplay').textContent = currentUserId;
                 renderApp();
                 return;
-            }
+            } */
 
             const app = initializeApp(firebaseConfig);
             db = getFirestore(app);
