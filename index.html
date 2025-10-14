@@ -1569,6 +1569,13 @@
                     onSnapshot(profileDocRef, (docSnap) => {
                         if (docSnap.exists()) {
                             profile = docSnap.data();
+                            profile = dadosPerfil;
+                            authReady = true;
+                            renderNavigation();
+                            renderApp();
+                            console.log("Perfil salvo:", profile);
+                            console.log("App desbloqueado:", isAppUnlocked());
+
                         } else {
                             profile = {}; 
                         }
