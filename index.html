@@ -1615,5 +1615,44 @@
         document.addEventListener('DOMContentLoaded', initializeAppLogic);
 
     </script>
+
+    <script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.5.0/firebase-app.js";
+  import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.5.0/firebase-auth.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyAnxJqVhEnvdAMcmDTNjAU2G9MHxmAVNbY",
+    authDomain: "plano-de-treino-semanal.firebaseapp.com",
+    projectId: "plano-de-treino-semanal",
+    storageBucket: "plano-de-treino-semanal.appspot.com",
+    messagingSenderId: "70819701777",
+    appId: "1:70819701777:web:c6ebc648e91c018d787db0"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const provider = new GoogleAuthProvider();
+
+  // Botão de login
+  document.getElementById("loginBtn").addEventListener("click", () => {
+    signInWithPopup(auth, provider)
+      .then(result => {
+        const user = result.user;
+        document.getElementById("userIdDisplay").textContent = user.uid;
+        console.log("Usuário logado:", user.displayName);
+      })
+      .catch(error => {
+        console.error("Erro no login:", error);
+      });
+  });
+
+  // Detectar login automático
+  onAuthStateChanged(auth, user => {
+    if (user) {
+      document.getElementById("userIdDisplay").textContent = user.uid;
+    }
+  });
+</script>
+
 </body>
 </html>
