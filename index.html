@@ -1567,18 +1567,18 @@
                     // 2. Carregar Perfil do Usuário (em tempo real)
                     const profileDocRef = doc(db, `artifacts/${appId}/users/${currentUserId}/profile/main`);
                     onSnapshot(profileDocRef, (docSnap) => {
-                        if (docSnap.exists()) {
-                            profile = docSnap.data();
-                            profile = dadosPerfil;
-                            authReady = true;
-                            renderNavigation();
-                            renderApp();
-                            console.log("Perfil salvo:", profile);
-                            console.log("App desbloqueado:", isAppUnlocked());
+                      if (docSnap.exists()) {
+                        profile = docSnap.data(); // carrega o perfil salvo
+                        authReady = true;
+                        renderNavigation();
+                        renderApp();
+                        console.log("Perfil carregado:", profile);
+                        console.log("App desbloqueado:", isAppUnlocked());
+                      } else {
+                        profile = {}; // perfil ainda não existe
+                      }
+                    });
 
-                        } else {
-                            profile = {}; 
-                        }
                         
                         // Garante que o usuário veja a Visão Geral se acabou de salvar e desbloqueou
                         if (isAppUnlocked() && currentPage === 'overview') {
